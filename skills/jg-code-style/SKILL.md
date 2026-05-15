@@ -17,6 +17,7 @@ that should match this style.
 - Writing or modifying C# code in a `.cs` file.
 - Designing a new service / project layout.
 - Reviewing existing code for style alignment.
+- The user references "my style", "JG's style".
 
 ---
 
@@ -431,8 +432,13 @@ Supplementary references on vertical-slice / onion architecture:
 - https://www.jimmybogard.com/vertical-slice-architecture/
 - https://www.milanjovanovic.tech/blog/vertical-slice-architecture
 
-If these pages are unavailable, the skill remains complete; the
-references are supplementary background only.
+Generic code samples illustrating the style described in this skill:
+
+- `../../code-samples/jg-code-samples-reference.md` (relative to this
+  skill's directory)
+
+If these pages or the samples file are unavailable, the skill remains
+complete; the references are supplementary background only.
 
 ---
 
