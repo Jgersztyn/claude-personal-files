@@ -126,6 +126,13 @@ four-field story structure onto them. Where an epic or spike keeps
 its own shape, say so in the ticket so nobody reads it as a
 non-conforming story.
 
+**When the ticket type is unclear, ask — don't guess.** Whether
+something is a bug, task, user story or spike changes which fields
+apply (bugs, for instance, typically don't need Acceptance
+Criteria). Ideally the user states the type up front when asking
+for a ticket. If they don't, and the type can't be determined with
+confidence from context, stop and ask before writing it.
+
 ---
 
 ## Further Reading

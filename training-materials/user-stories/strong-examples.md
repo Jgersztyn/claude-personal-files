@@ -1,12 +1,14 @@
 # Strong user story examples
 
 Reference examples for the `jg-user-stories` skill — see
-[`../../skills/jg-user-stories/SKILL.md`](../../skills/jg-user-stories/SKILL.md). These six are the
+[`../../skills/jg-user-stories/SKILL.md`](../../skills/jg-user-stories/SKILL.md). These seven are the
 stories judged concise, effective, and clear enough in their acceptance criteria that a developer knows
 what to complete. They are also the **length to aim for**.
 
-Reproduced verbatim from Climavision Jira (reporter: Jason Gersztyn), extracted 2026-08-07. Wording is
-unchanged — including the flaws noted below.
+Six of these seven are reproduced verbatim from Climavision Jira (reporter: Jason Gersztyn), extracted
+2026-08-07. `WI-645` is reproduced verbatim from a separate ticket note file, captured 2026-09-16, with
+no Jira or company metadata included — none was available, and none is wanted in this reference file.
+Wording is unchanged — including the flaws noted below.
 
 ## Reading notes
 
@@ -19,7 +21,7 @@ The examples predate the standard, so their field names vary. Map them as follow
 | `Context` (Fit all Maps) | fold into **Description**, or **Other Details** if it is background |
 | `Improvements to implement` (PD-2046) | non-standard — see below |
 
-Three deliberate caveats, so nothing here gets copied as a pattern when it shouldn't be:
+Four deliberate caveats, so nothing here gets copied as a pattern when it shouldn't be:
 
 - **PD-2187 has no real acceptance criteria.** Its second bullet is the literal placeholder
   `More AC here…` and the first has no measurable threshold. It is an exemplar of **structure and
@@ -28,6 +30,10 @@ Three deliberate caveats, so nothing here gets copied as a pattern when it shoul
   earns its place: a worklist that genuinely is not acceptance criteria. Do not adopt it by default.
 - **"Fit all Maps in one View" has no Jira key.** Nothing links to it and its screenshot did not show
   one, so none was invented.
+- **WI-645 skips Other Details.** The section was omitted because there was nothing real to add, per
+  the standard's "an empty field is worse than a missing one" rule. It does include Acceptance
+  Criteria, as any standard story should. (The general note that bugs typically don't need Acceptance
+  Criteria lives in the skill itself, not here — WI-645 is a standard story, not a bug.)
 
 ---
 
@@ -208,3 +214,28 @@ Current controls on the Views page:
 
 - Run / view selection — `RUN 12Z Aug 3, 2026`, the view group tabs, the edit button.
 - Time selection — forecast hour readout, the D1–D17 hour scrubber, and the `Latest` / `Latest Complete` toggles.
+
+---
+
+## WI-645 — Deleting a Panel View Does Nothing
+
+### Description
+
+Panel views need to actually be deletable. Clicking **Delete** on a view (via the "⋮" menu in the
+Panel Views dialog, screenshot: `delete_panel_does_nothing.png`) shows a green "View deleted."
+success message, but nothing is removed — the view still appears in the Panel Views list and in
+the view tabs.
+
+### Acceptance Criteria
+
+- Clicking Delete and confirming removes the view from the Panel Views list immediately.
+- The deleted view no longer appears in the view tabs.
+- The deletion persists after refreshing the page or reopening the Panel Views dialog.
+- The "View deleted." confirmation only appears when the view was actually deleted.
+
+### Dev Notes
+
+- Delete handling is `DeleteView()` in `src/UI/Components/Views/PanelViewEditorDialog.razor`
+  (~line 345) — it calls `NWPClient.DeleteUserViewState(view.Id)` and removes the view from local
+  state on success. Confirm the request actually succeeds server-side, and that whatever
+  repopulates the view list/tabs is reading from the same updated source afterward.
