@@ -45,6 +45,7 @@ deliberate. Each skill is paired with a supporting file that lives in a
 |---|---|---|
 | `skills/jg-code-style/` | `code-samples/jg-code-samples-reference.md` | Generic C# snippets |
 | `skills/jg-user-stories/` | `training-materials/user-stories/strong-examples.md` | Verbatim Jira stories |
+| `skills/jg-linqpad-scripts/` | `code-samples/jg-linqpad-samples-reference.md` | Generic LINQPad scripts |
 
 The contract between the two halves:
 
@@ -63,18 +64,18 @@ skill directory to "tidy up" — the separation is the design.
 
 ## The skill template
 
-Both skills share most of this skeleton. Match it when adding a third:
+The skills share most of this skeleton. Match it when adding another:
 
 1. YAML frontmatter — `name` (matching the directory) and a long `description`
    ending with the phrases that should trigger it (e.g. *"my coding style"*).
 2. `## When to apply this skill`
 3. `## Hard rules (never skip)` — numbered, and explicitly stated to **win any
    conflict with the rest of the document**.
-4. Body sections — numbered `## Area N — ...` for code style, field tables for
-   user stories.
+4. Body sections — numbered `## Area N — ...` for code style and LINQPad
+   scripts, field tables for user stories.
 5. `## Not covered here` — states the out-of-scope cases so the skill is not
    force-fitted (e.g. bugs, spikes and epics are not four-field stories).
-   `jg-user-stories` only — `jg-code-style` instead uses
+   `jg-user-stories` and `jg-linqpad-scripts` — `jg-code-style` instead uses
    `## Optional / Tool-Specific (do NOT standardize)` to bound scope.
 6. `## Further Reading` — external links plus the companion reference, with the
    "skill remains complete without it" disclaimer.
