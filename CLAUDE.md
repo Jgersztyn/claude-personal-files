@@ -46,6 +46,7 @@ deliberate. Each skill is paired with a supporting file that lives in a
 | `skills/jg-code-style/` | `code-samples/jg-code-samples-reference.md` | Generic C# snippets |
 | `skills/jg-user-stories/` | `training-materials/user-stories/strong-examples.md` | Verbatim Jira stories |
 | `skills/jg-linqpad-scripts/` | `code-samples/jg-linqpad-samples-reference.md` | Generic LINQPad scripts |
+| `skills/jg-pr-comment-editor/` | `training-materials/code-review-comments/verbose-vs-concise-comments.md` | Verbatim review comments, before/after |
 
 The contract between the two halves:
 
