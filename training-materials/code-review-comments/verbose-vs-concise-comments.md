@@ -1,160 +1,323 @@
 # PR comments: before and after
 
-Training material for `skills/jg-pr-comment-editor` and `agents/pr_comment_editor.md`.
-
-**Source:** the two review passes posted on Climavision/Athena PR #373 on 2026-10-21. JG judged them too
-verbose. The "Before" text is reproduced **verbatim, flaws included**. The "After" text is the target
-shape under the skill's rules. The skill is authoritative; this file only illustrates it.
+Training material for `skills/jg-pr-comment-editor` and `agents/pr_comment_editor.md`. The skill is
+authoritative; this file only illustrates it. Back to the skill:
+[`../../skills/jg-pr-comment-editor/SKILL.md`](../../skills/jg-pr-comment-editor/SKILL.md).
 
 ## Reading notes
 
-- The "Before" comments were graded on an older scale (Should fix / Optional). "Should fix" maps to
-  **Needs to address** on the current ladder.
-- Several "Before" comments were later edited on GitHub with second-pass corrections. This file keeps
-  the text as first posted.
-- Word counts are approximate (whitespace-split, markdown included).
+- **Source.** A study of one senior human reviewer, "the reference reviewer": more than 500
+  thread-opening review comments and about 100 review summaries across about 160 PRs in more than 40
+  repositories. The comparison set is 18 AI-drafted inline comments on one PR, judged too verbose by
+  a dev lead: 17 from two review passes posted 16 minutes apart, plus 1 from an earlier approval. It
+  also includes AI review-bot comments from the same codebases.
+- **Everything here is generic.** The examples in sections 2 to 4 are written fresh for this file,
+  and the "After" texts are short rewrites of the AI drafts. None is a quotation of any reviewer.
+  Names, identifiers, file paths, line numbers, ticket keys and domain details are neutral (orders,
+  catalogs, categories). The "Before" texts
+  reconstruct the AI drafts with all of those changed. Some of the drafts' own AI phrasing is kept to
+  show their shape, but no person's words are. Unlike the user-story examples, nothing in this file
+  reproduces a person's words or any private identifier. Add new pairs the same way.
+- **Word counts** split on whitespace, markdown included, and count prose only, not code blocks.
 
-## 1. Misleading log line
+## 1. The reference style in numbers
 
-**Anchor:** `src/UI/Components/Widgets/HeatMapForecastTable/HeatMapForecastTableWidget.razor:209`. **Rank under the current ladder:** Needs to address.
+| Measure | Reference reviewer (545 comments) | AI drafts (18 comments, as finally edited) |
+|---|---|---|
+| Median words per comment | 13 | about 150 |
+| Median sentences | 1 | 10 |
+| One sentence | 50% | 0% |
+| Over 40 words | 9% | 100% |
+| Opens with bold or a rank label | 0% | 100% |
+| Any plain label (`nit:`, `future:`) | 9% | n/a |
+| Asks a question | about 20% | 0% |
+| "Suggested fix:" section | 0% | 67% |
+| Line-number references | about 1% | 78% |
+| Process narration ("I traced", "mutants", "second pass") | 0% | 50% |
+| Opens with praise | 10% | 0% |
+| Review body | median 12 words; none counts by rank | 209 and 257 words; counts by rank |
+| What happened next | 45% of threads got a reply; 64% led to a code change | the 17 from the two passes drew no reply, reaction or fix |
 
-### Before (160 words)
+On the same evening, another reviewer's two comments on that PR, also AI-drafted and 43 and 90 words
+long, went unanswered too. So the silence alone isn't evidence about length. The rest of the table is.
 
-> **Should fix: the "Ignoring bound region" log fires for regions the table then shows.**
+How the reference reviewer carries severity without labels:
+- **The review event.** Request changes means "I want another look", even for small things. Approve
+  means everything left is optional.
+- **The review body.** A verdict in a few words, and, when something blocks, a short list of what to
+  fix.
+- **The verb.** "please …", "needs to …" and "before merge" for must-fix; "can we …?" and "how
+  about …?" for suggestions; "fine if intentional" and "fine to leave for now" for
+  take-it-or-leave-it.
+  In one sample, 8 of 9 firm comments were acted on, against 2 of 8 hedged ones.
+
+Other human reviewers in the same codebases write the same way: median 12 words, about a quarter of
+comments are questions, and none open with bold text. About 60% of the AI-written comments in those
+codebases did.
+
+## 2. Comment types
+
+Each example below follows the skill's rules for a posted comment. The count after it is its word
+count. Some kinds of finding (comment trimming, most naming, style and small simplifications) are
+usually graded Optional or Nit, and then they only reach the console. Their examples show the
+wording for when the input grades them higher.
+
+**Problem plus fix**
+- "Only `OrderService` calls this, so it can come off the interface." (11)
+- "`OrderContext` is non-nullable, so this null check can go. Same for the others." (13)
+- "Expose this as `string[]` so callers can't `Add` to it." (10)
+- "`options` is non-nullable, so the compiler already guarantees it. The runtime null check can
+  go." (15)
+
+**A misleading name**
+- "`IsValid` only checks the format, so callers will treat expired orders as valid. Please rename it
+  `HasValidFormat`." (17)
+
+**Stated firmly**
+- "Please move off the preview package version before merge." (9)
+- "Please put the HTTP calls behind an injected `IOrderClient`. As written, a unit test would need a
+  live server." (19)
+- "This breaks the single-file export. Please handle that case before merge." (11)
+
+**Questions that carry the scenario or the alternative**
+- "What happens if two requests create an order at the same moment? Both could read the same next
+  number." (19)
+- "Missing a `return;` after this guard? The guard above has one." (11)
+- "These types already exist in `Common.Messaging`. Can we use those instead of a copy?" (14)
+- "Could the standard compression library do this instead of the hand-written loop?" (12)
+
+**A test that proves less than it claims**
+- "This test checks the retry, not the caching its name promises. Please rename it
+  `Get_ShouldRetry_IfPreviousCallFailed`." (15)
+
+**A behaviour change with an exit**
+- "This no longer stops at the first error the way the old loop did. Fine if that's intended." (18)
+
+**Reader experience as evidence** (sparingly: at most one per review)
+- "I had to read this twice to see why the cache is cleared here. Can the clear move into
+  `Refresh`?" (20)
+
+**Code comments and docs: what's wrong and where it belongs**
+- "Please drop the expiry detail from this comment. It belongs to the cache and will go stale when the
+  cache changes." (21)
+- "This explains why the code changed, which belongs in the commit message. Please trim it to what the
+  code does." (20)
+
+**A fix that is code** (the code block doesn't count toward the word limit)
+- "The range check is pure logic, but it can only be tested through the file system. Pull it into a
+  static method a unit test can call:" (27)
+
+  ```csharp
+  public static bool IsInRange(DateOnly date, DateOnly from, DateOnly to)
+      => date >= from && date <= to;
+  ```
+
+**A repeated finding**
+- First site: "`OrderContext` is non-nullable, so this null check can go. Same for the others." (13)
+- Another site, only when it needs a different fix: "This one can go too, but keep the log line." (10)
+
+**Code the PR didn't change**
+- "`RetryCount` is never read. Pre-existing, so no change needed in this PR." (12)
+
+## 3. Review bodies
+
+Line one is always the verdict.
+- "Needs fixing before merge: the SQL injection in `Search` and the missing rollback." (with
+  Request changes; the must-fix line is the verdict)
+- "Nothing blocking, a few things to fix." (with Comment)
+- "Nothing blocking beyond the open thread on the write loop." (another reviewer's thread holds the
+  only blocker)
+- "Nothing blocking. Fix or merge as you like." (with Approve, and only when no must-fix finding
+  stands)
+- "Didn't review the migration scripts." (an optional line)
+- "Good call moving the clock behind `FakeClock`." (the one specific praise line, also optional)
+
+None of them counts comments by rank, restates the inline comments, or describes how the review was
+done.
+
+## 4. Replies and corrections
+
+- Conceding a fact: "Fair enough." / "Right, I missed that. The first assignment to `_currentId` is
+  still redundant, though."
+- Holding a principle: "A value that can be null needs a nullable type."
+- Deferring: "Not how I'd test it, but your call."
+- Correcting yourself: "Actually, the logger names that field for you, so this is fine."
+
+## 5. AI drafts, before and after
+
+All seven come from one PR: a catalog table that follows a page-level `Category` variable shared
+between widgets. Ranks are on the skill's current ladder.
+
+### 1. Misleading log line
+
+**Rank:** Needs to address.
+
+**Before (about 160 words):**
+
+> **Should fix: the "Ignoring bound category" log fires for categories the table then shows.**
 >
-> Blazor marks the component initialized before `OnInitializedAsync` finishes, so a parent render while `GetLicensedPermissionKeys()` is pending reaches `OnParametersSetAsync` with `_boundRegion` still null and `_regionPermissions` still empty. `FindSelectableRegion("PJM")` then logs *not licensed or not offered*, and init goes on to show PJM. `PageWidget` re-renders on breakpoint changes and on a sibling's fill, so this is a normal path (`ParentRendersWhileRegionsLoad_ShowsTheBoundRegion` drives it).
+> Initialization counts as complete before `OnInitializedAsync` returns, so a parent
+> render while `GetEnabledCategories()` is pending reaches `OnParametersSetAsync` with
+> `_boundCategory` still null and `_enabledCategories` still empty. `FindCategory("Books")` then
+> logs *not enabled*, and init goes on to show Books. The page re-renders on layout changes and on a
+> sibling's fill, so this is a normal path (`ParentRendersWhileLoading_ShowsTheBoundCategory` drives
+> it).
 >
-> The fill path at `:158` has the opposite problem: it logs "Ignoring X", and the next line overwrites X with this table's default.
+> The fill path at `:64` has the opposite problem: it logs "Ignoring X", and the next line
+> overwrites X with this table's default.
 >
-> This is the log added to answer "why didn't my variable stick?", so a wrong answer here costs more than no log.
+> This log exists to explain why a bound value was ignored, so a misleading entry here is worse than
+> no entry at all.
 >
 > Suggested fix:
-> - Return early from `OnParametersSetAsync` until the regions have loaded. Init already reads `Region` itself at `:122`, so nothing is lost.
-> - Keep `FindSelectableRegion` a pure lookup, and log at the one call site that actually discards the value.
+> - Return early from `OnParametersSetAsync` until the categories have loaded. Init already reads
+>   `Category` itself at `:41`, so nothing is lost.
+> - Keep `FindCategory` a pure lookup, and log at the one call site that actually discards the value.
 
-### After (49 words)
+**After (24 words):**
 
-> **Needs to address:** A parent render during the permissions load reaches here before the regions load, so this logs "Ignoring bound region PJM" for a region the table then shows. Return early from `OnParametersSetAsync` until the regions load, and log only where a value is actually dropped (`:124`, `:197`).
+> This logs "Ignoring category Books" while the categories are still loading, for a category the table
+> then shows. Please return early until they've loaded.
 
-**What was cut:** The Blazor lifecycle explanation, the second call path and the "why the log matters" paragraph. An author fixing the guard needs none of them.
+**What was cut:** the bold title, the lifecycle explanation, the "why it matters" paragraph and the
+line references. The second call path is a separate finding (hard rule 8), so it gets its own comment
+(25 words):
 
-## 2. Design question with options
+> This logs "Ignoring X", then the next line overwrites X with this table's default. Please log only
+> where a value is actually dropped, not here.
 
-**Anchor:** `src/UI/Components/Widgets/HeatMapForecastTable/HeatMapForecastTableWidget.razor:202`. **Rank under the current ladder:** Needs a decision.
+**Caveat:** in the real case another reviewer had already opened a thread on the main finding minutes
+earlier. Under hard rule 11 the right output was only the second comment above, with nothing
+re-filed, plus a candidate reply on that thread if the finding added a new fact.
 
-### Before (194 words)
+### 2. Design question with options
+
+**Rank:** Needs a decision.
+
+**Before (about 170 words):**
 
 > **Needs a decision: the shared resolver this PR defers is already on `main`.**
 >
-> The Follow-ups say this matching moves onto `IRegionForecasts.FindVisibleAsync` "once #370 merges". #370 merged today (`0ad46477`) and is in this PR's base. `RegionForecasts.cs:69-72` applies the same trim, case-insensitive and licensed-only rule, so the widget now holds a second copy of a permission rule. Rules 3 and 5 of `widget-composition.md` exist to prevent that.
+> The Follow-ups say this matching moves onto `ICategoryRules.ResolveAllowedAsync` "once the resolver
+> PR merges". It merged today and is in this PR's base. `CategoryRules.cs:30-33` applies the same
+> trim, case-insensitive and enabled-only rule, so the widget now holds a second copy of a permission
+> rule. The team's widget guidelines exist to prevent that.
 >
-> Nothing breaks today. The risk is drift: if the visibility rule changes in `RegionForecasts`, a `?region=` value is accepted by one widget and rejected by this one.
+> Nothing breaks today. The risk is drift: if the visibility rule changes in `CategoryRules`, a
+> `?category=` value is accepted by one widget and rejected by this one.
 >
-> Relatedly, the same value is compared four ways in this file: `:119`, `:193` (case-insensitive, no trim), `:207` (trimmed, case-insensitive) and `:197`/`:215` (ordinal). `Athena.Domain.Region` already has case-insensitive equality. Parsing the bound string into `Region?` once at the edge would make each of these a plain `==`.
+> Relatedly, the same value is compared four ways in this file: `:52`, `:88`, `:95` and `:91`/`:99`.
+> The domain `Category` type already has case-insensitive equality. Parsing the bound string into
+> `Category?` once at the edge would make each of these a plain `==`.
 >
 > Options:
-> - (a) Resolve through `FindVisibleAsync` here, then intersect with `AllowedRegions`, which that service doesn't apply. `FindSelectableRegion` becomes async, so the load-race guard needs re-checking.
-> - (b) Keep it as is and update the Follow-up. It is unblocked now, so state the real reason for deferring, for example keeping the resolver swap separate from this behaviour change.
+> - (a) Resolve through `ResolveAllowedAsync` here, then intersect with `AllowedCategories`. The lookup
+>   becomes async, so the load-race guard needs re-checking.
+> - (b) Keep it as is and update the Follow-up with the real reason for deferring.
 
-### After (40 words)
+**After (22 words):**
 
-> **Needs a decision:** #370 has merged, so `RegionForecasts` already applies this licensed-region rule, and the widget now duplicates it. Either use it here (intersect with `AllowedRegions`, keep the lookup synchronous), or update the Follow-up with the real reason for deferring.
+> The resolver PR has merged, so `CategoryRules` already applies this rule. Can we use it here rather
+> than keep a second copy?
 
-**What was cut:** The "Relatedly…" aside about four comparison rules (a separate finding, Optional at most) and the sub-bullets under each option.
+**What was cut:** the options menu (the question invites the author's reason, which covers option
+b), the drift paragraph, and the "Relatedly" aside. The aside is a separate Optional finding, so it
+goes to the console. **Caveat:** in the real case another reviewer's open thread had already asked
+for one shared rule. Under hard rule 11 the right output was a candidate reply carrying the new fact
+(the resolver PR has merged), not a new comment. The After shows the wording had no thread existed.
 
-## 3. Test gap backed by a mutation
+### 3. Test gap backed by a mutation run
 
-**Anchor:** `tests/Tests.Component/UI/Components/Widgets/HeatMapForecastTableRegionBindingTests.cs:201`. **Rank under the current ladder:** Needs to address.
+**Rank:** Needs to address.
 
-### Before (164 words)
+**Before (about 165 words):** a bold "Should fix" title; "A mutant that captures `Category` before
+the await passes all 41 tests (run on an isolated copy)"; a five-sentence walkthrough of two tables
+drifting apart; and a "Suggested fix" with a five-line test.
 
-> **Should fix: this test can't tell "read `Region` after the permissions load" from "read it before".**
->
-> It renders `Pjm`, re-renders with the same `Pjm`, then opens the gate. A mutant that captures `Region` before the await at `:115` and uses it at `:124` passes all 34 tests (run on an isolated copy of the head).
->
-> Example: table B's permissions are still loading when table A fills the empty shared variable with ERCOT. B offers ERCOT, but under the mutant it initializes from the stale empty value and shows its own default. Its fill sees a non-blank `Region` and writes nothing, and its post-init `OnParametersSetAsync` returns early because `_boundRegion` already equals ERCOT. The two tables stay on different regions.
->
-> Suggested fix: start from a different value. This passes on the head and fails on the mutant:
-> ```csharp
-> var cut = Render(Ercot, _ => { });
-> cut.SetParametersAndRender(p => p.Add(w => w.Region, Pjm));
-> permissionsLoaded.SetResult();
-> ShouldShow(cut, Pjm);
-> ```
-> The `_ReportsNothing` twin at `:207` can take the same change.
+**After (19 words):**
 
-### After (33 words)
+> Both renders use Books, so this still passes if `Category` is read before the await. Start from
+> Games instead.
 
-> **Needs to address:** This passes `Pjm` both before and after the gate, so a version that reads `Region` before the await still passes all 34 tests. Start from `Ercot` and re-render with `Pjm`.
+**What was cut:** the mutation run (test-run evidence is an AI tell), the walkthrough and the code
+block. The one-sentence fix says the same thing.
 
-**What was cut:** The multi-table failure walkthrough and the 5-line code block. The one-sentence fix says the same thing. Keep "all 34 tests still pass": it is the evidence.
+### 4. A doc comment that overstates an invariant
 
-## 4. Documentation that overstates an invariant
+**Rank:** Needs to address.
 
-**Anchor:** `src/UI/Components/Widgets/HeatMapForecastTable/HeatMapForecastTableWidget.razor:190`. **Rank under the current ladder:** Needs to address.
+**Before (about 127 words):** a bold "Should fix" title quoting the comment; two line references to
+the fill path; a debugging scenario ("someone sees the variable go A → B…"); and a "Suggested fix"
+with full replacement comment text.
 
-### Before (127 words)
+**After (27 words):**
 
-> **Should fix: "widgets sharing it never overwrite each other" isn't true of the fill path.**
->
-> `FillEmptyRegionAsync` (`:147`, `:158-159`) does replace a sibling's fill that this table doesn't offer. That is the designed behaviour, and the comment two methods up says so. The PR body makes the same global claim, then describes the overwrite two paragraphs later.
->
-> Example: someone debugging two tables offering `[A, C]` and `[B, C]` sees the variable go A → B. They read this line as an invariant and go looking for a bug in `PageState`.
->
-> Suggested fix: scope it to this method, for example `// A later bound value this widget can't take is left in the variable, so following a change never writes.` Make the same edit to the PR body sentence.
+> Not quite: loading does replace a sibling's value, so "never overwrite each other" is wrong. Please
+> scope it to later changes, here and in the PR description.
 
-### After (40 words)
+**What was cut:** the scenario, the line references and the replacement prose. The comment says what
+is wrong and lets the author word the fix. The PR description repeats the same sentence, so it is
+covered in the same comment rather than filed twice.
 
-> **Needs to address:** The load fill at `:158-159` does overwrite a sibling's value, so "never overwrite each other" is wrong. Scope it to this method ("following a later change never writes"), and fix the same sentence in the PR body.
+### 5. Optional item: console only
 
-**What was cut:** The debugging scenario and the full replacement comment.
+**Rank:** Optional, so it is never posted.
 
-## 5. Optional item: console only, not posted
+**Before (about 88 words):** a bold "Optional" title, three embedding pages listed with line numbers,
+a paragraph on render passes, and a "Suggested fix" with an `if` condition.
 
-**Anchor:** `src/UI/Components/Widgets/HeatMapForecastTable/HeatMapForecastTableWidget.razor:141`. **Rank under the current ladder:** Optional (console only).
+**After (console line):**
 
-### Before (88 words)
+> - Optional: unbound tables now yield once on every load; guard the fill with
+>   `CategoryChanged.HasDelegate` (CatalogTable.razor:57)
 
-> **Optional: tables that never bind `Region` now always yield on load.**
->
-> `ComparisonHeatmap.razor:21`, `ClimatologyView.razor:42` and the Forecast Table page (`KnownPages.cs:1207`) don't bind `Region`, but they now run `Task.Yield()` and an empty `RegionChanged` on every load. Once `GetLicensedPermissionKeys` is cached, init used to finish synchronously. Now it never does, which adds a render pass in code paths the PR says are unchanged.
->
-> Suggested fix: `if (defaultRegion is not null && RegionChanged.HasDelegate)`. `PageWidget` wires `RegionChanged` only when `Region` is bound, so this matches the intent that only a bound table fills.
+### 6. Review body for a second pass
 
-### After (16 words)
+**Rank:** Needs to address, for the one PR-level finding.
 
-> - Optional: unbound embedders now yield once on every load; guard the fill with `RegionChanged.HasDelegate` (HeatMapForecastTableWidget.razor:141).
+**Before (about 257 words):** "**Second pass.** Eight fresh reviewers covered the same lenses…
+mutations run on an isolated copy. **Still nothing blocking.**", a list of withdrawn and amended
+first-pass comments with line numbers, "New, inline: four **Optional** items.", and a 140-word
+PR-level finding with a step-by-step Back-button scenario.
 
-**What was cut:** The whole comment. Under the current rules it is printed in the console summary as one line and never posted.
+**After (33 words):**
 
-## 6. Tandem / description issue posted in the review body
+> Nothing blocking.
+> The description's note on `isAutoFilled` covers only the first fill. A second table replacing it
+> pushes a history entry, so Back lands on a category nobody picked. Please correct the note.
 
-**Anchor:** `(review body)`. **Rank under the current ladder:** Needs to address.
+**What was cut:** the process, the counts, the list of corrections and the scenario. A second pass
+shouldn't exist: verify before posting, post once, and correct a posted comment with a one-line
+reply only when told to.
 
-### Before (257 words)
+### 7. A label that contradicted the finding
 
-> **Second pass.** Eight fresh reviewers covered the same lenses. They looked for what the first pass missed and checked its findings, with mutations run on an isolated copy of the head. **Still nothing blocking.**
->
-> Corrections to my first-pass comments are edited into those threads and marked:
-> - **Withdrawn:**
->   - `:135` (drain not pinned): the overlapping-pair tests already do a positive check after `FinishLoadAsync`.
->   - `:467` (later-pass test): executed, and the mutant it targets already fails existing tests.
-> - **Amended:**
->   - `:209`: log at both discard sites, not one.
->   - `:202`: keep the resolver lookup synchronous; option (a) as written adds an await race.
->   - `:144`: the suggested rewrites dropped a fact.
->   - `:471`: the helper name should be a verb.
->   - `:195`: five other "Region Key" parameters.
->
-> New, inline: four **Optional** items.
->
-> PR-level, not anchored to a line:
-> - **Should fix (description): the `isFilledByWidget` tandem note only covers the first write.** `PageUrlState.ReplacesHistory` (`PageUrlState.cs:25-27`) replaces history only while the URL lacks the key. When a second table overwrites a sibling's fill it can't show, the key is already in the URL, so that write pushes an entry. The tests depend on that overwrite: the wide-first overlapping pair settles after two writes, ERCOT then PJM. On a URL-synced page with `[ERCOT, PJM]` placed before `[PJM]`, Back moves the wide table to ERCOT, a region nobody chose, and leaving the page takes a second Back. No code change is needed here. Correct the tandem note, and have the PageCore provisional-value follow-up treat replacing a widget-filled value as a history replace.
+**Rank:** graded "Needs a decision (non-blocking)" in the input. Another reviewer's open thread had
+already graded the same loop Blocking, with a reproduction.
 
-### After (51 words)
+**Before (about 240 words):** "**Needs a decision (non-blocking):** write-back can loop between two
+widgets on one variable", posted with an approval, including "I traced this by reading the code and
+did not run it", three paragraphs of scenario, and options (a) and (b).
 
-> Second pass: nothing blocking. Inline: 0 posted (4 Optional printed to console).
-> **Needs to address:** `isFilledByWidget` covers only the first fill. A second table replacing a sibling's fill pushes a history entry, so Back lands on a region nobody chose. Correct the tandem note and cover it in the PageCore follow-up.
+**What the skill does with it:**
+- It keeps the input grade, minus the "(non-blocking)" decoration, and flags the grade as too low in
+  the console.
+- It drops the comment as a duplicate of the open thread (hard rule 11).
+- The open Blocking thread still counts as a standing must-fix finding, so the verdict is "Nothing
+  blocking beyond the open thread on the write loop."
+- If the request named `APPROVE`, the skill refuses to post and says why (hard rule 13). Under
+  any other event, it asks the user about the flagged grade before posting (step 6).
 
-**What was cut:** The list of corrections to earlier comments (each correction goes on its own thread as one line) and the step-by-step Back scenario.
+**After, had no one else raised it and the input graded it Blocking (27 words):**
 
+> Two tables sharing a variable but allowing different categories keep overwriting each other, an
+> endless write loop. Please write back only on a user pick before merge.
+
+**After, had it been ungraded and unverified (Needs research, 20 words):**
+
+> What happens when two of these share a variable but allow different categories? Looks like they'd
+> keep overwriting each other.
+
+**What was cut:** the "(non-blocking)" decoration and the approval, which told the author a
+reproduced infinite loop could merge. The wording, the verdict and the review event carry severity,
+so they must agree with every standing must-fix finding, including ones in other reviewers' threads.

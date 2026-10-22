@@ -46,15 +46,16 @@ deliberate. Each skill is paired with a supporting file that lives in a
 | `skills/jg-code-style/` | `code-samples/jg-code-samples-reference.md` | Generic C# snippets |
 | `skills/jg-user-stories/` | `training-materials/user-stories/strong-examples.md` | Verbatim Jira stories |
 | `skills/jg-linqpad-scripts/` | `code-samples/jg-linqpad-samples-reference.md` | Generic LINQPad scripts |
-| `skills/jg-pr-comment-editor/` | `training-materials/code-review-comments/verbose-vs-concise-comments.md` | Verbatim review comments, before/after |
+| `skills/jg-pr-comment-editor/` | `training-materials/code-review-comments/verbose-vs-concise-comments.md` | Generic review comments, before/after |
 
 The contract between the two halves:
 
 - **The skill is self-contained and authoritative.** Every rule is stated inline.
   Each skill says explicitly that it "remains complete" if the reference is
   unavailable — the reference is supplementary background only.
-- **The reference is isolated and generic.** `code-samples/` carries no project,
-  repo, or domain names; identifiers are genericised.
+- **The reference is isolated and generic.** `code-samples/` and
+  `training-materials/code-review-comments/` carry no project, repo, people or
+  domain names; identifiers are genericised.
 - **Linking is one-way-ish and relative**: skills point out via
   `../../<dir>/<file>.md` from a `## Further Reading` section. Moving either half
   breaks the link — run the link check above.
@@ -89,11 +90,16 @@ The skills share most of this skeleton. Match it when adding another:
   established folder convention. Never silently correct them here or in any
   project this repo's guidance is applied to; `jg-code-style` hard rule 5 names
   this explicitly.
-- **Training material is reproduced verbatim, flaws included.** The Jira examples
-  are unchanged real tickets. Known defects (a placeholder acceptance criterion,
-  a non-standard field, a missing ticket key) are documented in the file's
-  "Reading notes" caveats rather than fixed. Do not clean up the examples —
-  extend the caveats if you find another flaw.
+- **The user-story training material is reproduced verbatim, flaws included.**
+  The Jira examples are unchanged real tickets. Known defects (a placeholder
+  acceptance criterion, a non-standard field, a missing ticket key) are
+  documented in the file's "Reading notes" caveats rather than fixed. Do not
+  clean up those examples — extend the caveats if you find another flaw.
+- **The review-comment training material is never verbatim.** This repo is
+  public, so `training-materials/code-review-comments/` holds only generic
+  reconstructions and freshly written examples: no names, repos, PR numbers,
+  private identifiers or domain vocabulary, and no reviewer's own sentences.
+  Add new before/after pairs the same way.
 - **Skills are prefixed `jg-`**; the `name` field equals the directory name.
 - **Agents** live at `agents/<file>.md`. The file name is free-form, but the
   frontmatter `name` must be lowercase/numbers/hyphens only, so it may legitimately
