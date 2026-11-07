@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Sam's GitHub App avatar. -->
+  <defs>
+    <clipPath id="eyeL"><path d="M194 246 Q214 230 240 243 Q234 264 216 265 Q198 264 194 246 Z"/></clipPath>
+    <clipPath id="eyeR"><path d="M318 246 Q298 230 272 243 Q278 264 296 265 Q314 264 318 246 Z"/></clipPath>
+  </defs>
+
+  <g stroke="#2B1D16" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+    <!-- hood lying behind the neck -->
+    <path d="M166 398 Q176 350 256 350 Q336 350 346 398 Z" fill="#B85E25"/>
+
+    <!-- neck -->
+    <path d="M224 318 L224 404 Q256 420 288 404 L288 318 Z" fill="#F0C29E"/>
+    <path d="M224 330 Q256 362 288 330 L288 350 Q256 374 224 350 Z" fill="#D99C76" stroke="none"/>
+
+    <!-- hoodie body with round neckline -->
+    <path d="M84 500 C88 440 128 404 200 390 Q256 432 312 390 C384 404 424 440 428 500 Q256 514 84 500 Z" fill="#E07B39"/>
+    <!-- collar rib -->
+    <path d="M196 388 Q256 440 316 388" fill="none" stroke="#B85E25" stroke-width="12"/>
+    <path d="M190 384 Q256 450 322 384" fill="none"/>
+    <!-- folds -->
+    <path d="M140 446 Q152 474 146 500" fill="none" stroke="#B85E25" stroke-width="4"/>
+    <path d="M372 446 Q360 474 366 500" fill="none" stroke="#B85E25" stroke-width="4"/>
+    <!-- drawstrings -->
+    <path d="M236 424 L230 472" fill="none" stroke="#FBEBDC" stroke-width="6"/>
+    <path d="M276 424 L282 472" fill="none" stroke="#FBEBDC" stroke-width="6"/>
+    <rect x="224" y="470" width="12" height="16" rx="3" fill="#B85E25" stroke-width="3"/>
+    <rect x="276" y="470" width="12" height="16" rx="3" fill="#B85E25" stroke-width="3"/>
+    <!-- badge: a speech bubble with a question mark -->
+    <path d="M318 444 h44 a10 10 0 0 1 10 10 v22 a10 10 0 0 1 -10 10 h-26 l-10 10 v-10 h-8 a10 10 0 0 1 -10 -10 v-22 a10 10 0 0 1 10 -10 Z" fill="#FFF7EE" stroke-width="3"/>
+    <text x="340" y="478" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="800" fill="#E07B39" stroke="none" text-anchor="middle">?</text>
+
+    <!-- ears -->
+    <ellipse cx="164" cy="252" rx="15" ry="23" fill="#F0C29E"/>
+    <ellipse cx="348" cy="252" rx="15" ry="23" fill="#F0C29E"/>
+    <path d="M166 242 Q156 252 166 264" fill="none" stroke="#C98B66" stroke-width="3"/>
+    <path d="M346 242 Q356 252 346 264" fill="none" stroke="#C98B66" stroke-width="3"/>
+
+    <!-- face -->
+    <path d="M164 210 C162 290 192 342 256 346 C320 342 350 290 348 210 C348 150 310 118 256 118 C202 118 164 150 164 210 Z" fill="#F6CBA8"/>
+
+    <!-- hair: short sides, tousled top, fringe swept to one side -->
+    <path d="M226 104 Q232 64 266 70 Q250 82 254 100 Z" fill="#3B2A20"/>
+    <path d="M280 100 Q300 60 326 84 Q304 82 302 104 Z" fill="#3B2A20"/>
+    <path d="M152 240 C138 180 150 120 205 96 C250 76 318 78 352 108 C378 132 374 196 360 240 C356 214 352 196 346 182 C336 172 324 166 312 162 Q300 178 282 182 Q262 172 250 160 Q236 186 210 196 Q196 192 190 182 Q180 200 170 212 C162 220 156 230 152 240 Z" fill="#3B2A20"/>
+    <path d="M214 112 Q258 94 304 104" fill="none" stroke="#6A4B38" stroke-width="6"/>
+    <path d="M318 118 Q340 132 346 160" fill="none" stroke="#6A4B38" stroke-width="5"/>
+
+    <!-- brows: one a little higher, curious -->
+    <path d="M194 216 Q214 205 238 211" fill="none" stroke="#3B2A20" stroke-width="9"/>
+    <path d="M276 205 Q298 194 320 203" fill="none" stroke="#3B2A20" stroke-width="9"/>
+
+    <!-- eyes: relaxed, slightly lowered lids -->
+    <path d="M194 246 Q214 230 240 243 Q234 264 216 265 Q198 264 194 246 Z" fill="#FFFFFF" stroke="none"/>
+    <g clip-path="url(#eyeL)" stroke="none">
+      <circle cx="218" cy="251" r="13" fill="#6B4226"/>
+      <circle cx="218" cy="251" r="7" fill="#1E1410"/>
+      <circle cx="213" cy="246" r="4" fill="#FFFFFF"/>
+      <circle cx="223" cy="256" r="2" fill="#FFFFFF"/>
+    </g>
+    <path d="M192 247 Q214 228 242 242" fill="none" stroke-width="5"/>
+    <path d="M200 262 Q216 268 232 261" fill="none" stroke="#C98B66" stroke-width="2.5"/>
+
+    <path d="M318 246 Q298 230 272 243 Q278 264 296 265 Q314 264 318 246 Z" fill="#FFFFFF" stroke="none"/>
+    <g clip-path="url(#eyeR)" stroke="none">
+      <circle cx="296" cy="251" r="13" fill="#6B4226"/>
+      <circle cx="296" cy="251" r="7" fill="#1E1410"/>
+      <circle cx="291" cy="246" r="4" fill="#FFFFFF"/>
+      <circle cx="301" cy="256" r="2" fill="#FFFFFF"/>
+    </g>
+    <path d="M320 247 Q298 228 270 242" fill="none" stroke-width="5"/>
+    <path d="M312 262 Q296 268 280 261" fill="none" stroke="#C98B66" stroke-width="2.5"/>
+
+    <!-- blush -->
+    <ellipse cx="198" cy="292" rx="16" ry="8" fill="#F2A08A" opacity="0.45" stroke="none"/>
+    <ellipse cx="316" cy="292" rx="16" ry="8" fill="#F2A08A" opacity="0.45" stroke="none"/>
+
+    <!-- nose -->
+    <path d="M258 262 Q268 284 254 292" fill="none" stroke="#C98B66" stroke-width="4"/>
+
+    <!-- easy, slightly lopsided smile -->
+    <path d="M232 312 Q258 328 286 305" fill="none" stroke-width="5"/>
+    <path d="M286 305 Q290 302 290 298" fill="none" stroke-width="4"/>
+  </g>
+</svg>

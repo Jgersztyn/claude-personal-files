@@ -1,0 +1,44 @@
+{
+  "searchQuery": "is:pr is:open archived:false user-review-requested:@me",
+  "repos": {
+    "your-org/your-repo": {
+      "clonePath": ""
+    }
+  },
+  "skipDraftPrs": true,
+  "model": "opus",
+  "maxBudgetUsd": 0,
+  "allowRequestChanges": false,
+  "postAs": "app",
+  "githubApp": {
+    "appId": "",
+    "slug": "",
+    "keyFile": "%USERPROFILE%\\.config\\sam\\github-app-key.bin"
+  },
+  "footer": "",
+  "keepWorktree": false,
+  "codexReview": { "enabled": true, "waitMinutes": 10 },
+  "reviewSkill": {
+    "tiers": [
+      { "maxChangedLines": 0, "name": "", "reviewers": 4, "reviewerModel": "" }
+    ],
+    "instructions": [],
+    "scaffold": []
+  },
+  "startReaction": true,
+  "followUps": true,
+  "allowedTools": [
+    "Read", "Grep", "Glob", "Edit(./**)", "Agent", "Task", "Skill", "TodoWrite",
+    "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)", "Bash(git status:*)",
+    "Bash(git blame:*)", "Bash(git rev-parse:*)", "Bash(git ls-files:*)", "Bash(git merge-base:*)", "Bash(git checkout:*)", "Bash(git restore:*)", "Bash(git clean -fd:*)",
+    "Bash(gh pr view:*)", "Bash(gh pr diff:*)",
+    "Bash(dotnet build:*)", "Bash(dotnet test:*)", "Bash(dotnet restore:*)", "Bash(dotnet --version)", "Bash(dotnet --info)",
+    "Bash(ls:*)"
+  ],
+  "disallowedTools": [
+    "Bash(git push:*)", "Bash(git commit:*)", "Bash(git reset:*)", "Bash(git stash:*)",
+    "Bash(gh api:*)", "Bash(gh pr review:*)", "Bash(gh pr comment:*)", "Bash(gh pr merge:*)",
+    "Bash(gh pr edit:*)", "Bash(gh pr close:*)", "Bash(gh issue:*)",
+    "WebFetch", "WebSearch"
+  ]
+}

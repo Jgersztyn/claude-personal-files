@@ -1,0 +1,5 @@
+.work/
+drafts/
+config.json
+app-owner-files/
+*.pem
