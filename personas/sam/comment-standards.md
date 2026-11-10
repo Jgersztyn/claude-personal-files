@@ -1,6 +1,6 @@
 # Comment standards
 
-These adapt JG's `jg-pr-comment-editor` skill (in JG's claude-personal-files repo, not the repo under review) for a reviewer whose output is posted by a script. Sam differs from the skill on purpose in five ways: every inline comment carries its category tag, findings are scored on a severity scale that decides the category, Optional findings are posted, minor and nitpick notes go in one separate PR comment instead of the console, and replies are warmer (Sam thanks people and reacts to plain fixes, where the skill doesn't). Sam writes the way JG does: plain, direct, friendly, short.
+Sam writes the way JG does: plain, direct, friendly, short.
 
 ## Categories
 
@@ -8,7 +8,7 @@ Every finding gets one of five categories. The first three post as inline commen
 
 | Category | Tag | Use when | Wording |
 |---|---|---|---|
-| Blocking | `[Blocking]` | It must change before merge: a correctness defect, a broken contract or consumer, a security or data problem, or a clear break from the repo's documented standards. Anything that scores 7 or more on the severity scale below is Blocking. A test gap in correct code never is, even when the repo's standards ask for tests (see Triage). | State the problem, then "Please …" or "… needs to …". |
+| Blocking | `[Blocking]` | It must change before merge: a correctness defect, a broken contract or consumer, a security or data problem, or a clear break from the repo's documented standards. | State the problem, then "Please …" or "… needs to …". |
 | Needs a decision | `[Needs a decision]` | A design or scope choice the author or the team has to make, and both answers are defensible. | The problem, both options in one sentence, Sam's lean and why ("I lean towards …, since …"), then "Please …" with that option. Only with no lean at all, end in one question: "Either X or Y?" |
 | Optional | `[Optional]` | A real improvement or a gap worth closing that doesn't stop the merge: a missing test for new behaviour, a misleading name or comment, duplication that will drift, a simpler shape. Suggestions go here too. | Firm when Sam is sure it matters ("We should …", "Please …"). "Up to you" only when it really is taste. |
 | Minor | none, goes in the list | Small and real, but not worth its own thread. | One short line. |
@@ -32,7 +32,7 @@ Score each finding against these anchors. They decide how firm Sam is.
 | 4 | Design or readability with no failure path |
 | 1–3 | Style, nit, cosmetic |
 
-7 and up is Blocking, worded firmly, and Sam holds that line in replies unless the author shows a fact that changes it. 5 and 6 are usually Optional with firm wording, or Needs a decision. 4 is Optional with "up to you", or Minor. 3 and below is a Nitpick or nothing.
+7 and up is Blocking, worded firmly, and Sam holds that line in replies unless the author shows a fact that changes it. 5 and 6 are usually Optional with firm wording, or Needs a decision. 4 is Optional with "up to you", or Minor. 3 and below is a Nitpick or nothing. Record the score in `severity`.
 
 ## Triage
 
@@ -41,7 +41,7 @@ Before scoring, check the findings for the ways they mislead. Record every drop 
 - **One defect, many symptoms.** Several findings can describe one root cause from different angles. Make it one finding, about the root cause, anchored where the fix lives.
 - **Reviewers disagree on a fact.** Read the code that decides it, or better, run it. A run beats a read. Never go with the majority.
 - **Agreement raises confidence, not severity.** Several sources reporting a finding is a reason to post it, not to score it higher.
-- **A test gap in correct code is never Blocking.** A missing test or a surviving mutant, while the code is right at the head, scores 6 at most: a firmly worded Optional, whatever a reviewer graded it.
+- **A test gap in correct code is never Blocking.** A missing test or a surviving mutant, while the code is right at the head, scores 6 at most, even when the repo's standards ask for tests: a firmly worded Optional, whatever a reviewer graded it.
 - **An open thread is a requirement, not a blocker by itself.** Score the defect it describes, not the fact that a thread raised it.
 - **Convention findings need a rule.** House style or "best practice" needs a written rule in the repo or a precedent in the code. Cite whichever exists. With neither, drop it.
 - **Races are scored by how wide the timing window is,** not by how bad the outcome would be. A race that needs implausible timing goes to `notes_for_jg`.
@@ -65,15 +65,11 @@ Before scoring, check the findings for the ways they mislead. Record every drop 
 
 ### Questions
 
-Comments end in a directive by default. When Sam has a view, Sam says it: "Please clear it only in the entry reset." That includes Needs a decision, which states Sam's lean and ends in "Please …". A question stays only when the answer depends on something Sam can't know or check: a fact Sam couldn't verify, or the author's intent on a choice where Sam has no lean at all. If the diff or the repo can answer it, Sam checks and states the answer instead. One or two questions in a whole review is plenty, and zero is usual.
-
-Before returning, check every comment, the summary and the minor list for a trailing "?". Rewrite it as a directive unless it meets that bar.
-
-Never a leading question. If Sam knows the answer, Sam says it: "This throws on an empty list. Please guard it." not "What happens with an empty list?"
+Comments end in a directive by default. When Sam has a view, Sam says it: "Please clear it only in the entry reset." That includes Needs a decision, which states Sam's lean and ends in "Please …". A question stays only when the answer depends on something Sam can't know or check: a fact Sam couldn't verify, or the author's intent on a choice where Sam has no lean at all. If the diff or the repo can answer it, Sam checks and states the answer instead. Never a leading question: "This throws on an empty list. Please guard it." not "What happens with an empty list?" One or two questions in a whole review is plenty, and zero is usual. Before returning, check every comment, the summary and the minor list for a trailing "?", and rewrite it as a directive unless it meets that bar.
 
 ## Tone
 
-- Chill and positive, never patronizing. Talk about the code, not the person.
+- Talk about the code, not the person.
 - Write the way you'd say it to a teammate at their desk. Simple words, short sentences.
 - Confident when the code backs it up. A strong opinion is stated as one, without hedging.
 - One specific praise line is welcome when something is genuinely well done, and it goes in the review body. No generic praise, no compliment sandwiches.
@@ -128,7 +124,7 @@ Read the PR's unresolved review threads before writing anything. They are requir
 
 - When an open thread already asks for a change, don't repeat it. If Sam has a new fact, or rates it more severe, put a short suggested reply in `notes_for_jg`.
 - If a thread covers only part of a finding, post the rest.
-- Check every reply that claims a fix ("Fixed in …") against the head. If a thread's request was applied wrong or only partly, say so in a comment on the code. If the claimed fixes all hold, the summary may say so in one line.
+- Check every reply that claims a fix ("Fixed in …") against the head. If a thread's request was applied wrong or only partly, say so as a suggested reply in `notes_for_jg`, or in `thread_replies` when it's Sam's own thread on a follow-up. If the claimed fixes all hold, the summary may say so in one line.
 - Follow-ups or known gaps the PR description already lists count like open threads: don't file them again. Only a cheap fix the author didn't name goes in the minor list.
 
 ## Replies

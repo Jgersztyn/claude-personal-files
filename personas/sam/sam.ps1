@@ -8,35 +8,15 @@
   Nothing is posted unless you pass -Post or post a draft with -PostDraft. Posts go out as Sam's
   GitHub App (<app-slug>[bot]), or as you with postAs 'me' in config.json.
 
-  Works on Windows PowerShell 5.1 and PowerShell 7.
-
-.EXAMPLE
-  .\sam.ps1
-  Poll once and save drafts. Nothing is posted.
-
-.EXAMPLE
-  .\sam.ps1 -Pr https://github.com/<owner>/<repo>/pull/123
-  Review one PR now, whether or not you are requested on it.
+  Works on Windows PowerShell 5.1 and PowerShell 7. README.md covers setup and every mode.
 
 .EXAMPLE
   .\sam.ps1 -Pr https://github.com/<owner>/<repo>/pull/123 -PromptOnly
-  Print the prompt Sam would get. Clones nothing and runs nothing.
-
-.EXAMPLE
-  .\sam.ps1 -PostDraft .\drafts\owner-repo-123-0644b75.json
-  Post a draft you have read (and maybe edited) to the PR.
+  Print the prompt Sam would get. Reads the PR from GitHub, and clones and posts nothing.
 
 .EXAMPLE
   .\sam.ps1 -ImportKey C:\path\to\sam.pem
   One-time setup: encrypt the app's private key for your Windows account. Then delete the .pem.
-
-.EXAMPLE
-  .\sam.ps1 -Loop -IntervalMinutes 10 -Post
-  Unattended mode. Posts as Sam's GitHub App (postAs 'app' in config.json).
-
-.EXAMPLE
-  .\sam.ps1 -Outcomes
-  How Sam's posted comments fared: resolved, code changed, replied to, or no response. Private.
 #>
 [CmdletBinding(DefaultParameterSetName = 'Poll')]
 param(
@@ -124,44 +104,44 @@ function Invoke-Native([string] $Exe, [string[]] $Arguments) {
     return ($stdout -join "`n")
 }
 
-$ConfigDefaults = [ordered]@{
-    searchQuery         = 'is:pr is:open archived:false user-review-requested:@me'
-    repos               = [pscustomobject]@{}
-    skipDraftPrs        = $true
-    model               = 'opus'
-    maxBudgetUsd        = 0
-    allowRequestChanges = $false
-    postAs              = 'app'
-    githubApp           = [pscustomobject]@{ appId = ''; slug = ''; keyFile = '' }
-    footer              = ''
-    keepWorktree        = $false
-    codexReview         = [pscustomobject]@{ enabled = $true; waitMinutes = 10 }
-    # How step 3 of a review runs; see Get-ReviewTiers and Format-ReviewStep.
-    reviewSkill         = [pscustomobject]@{ tiers = @(); instructions = @(); scaffold = @() }
-    startReaction      = $true
-    followUps           = $true
-    allowedTools        = @('Read', 'Grep', 'Glob')
-    disallowedTools     = @()
+function Read-ConfigExample {
+    return Read-Utf8 (Join-Path $Root 'config.example.json') | ConvertFrom-Json
 }
 
-# Missing keys fall back to the defaults above, so a trimmed config.json doesn't trip StrictMode.
+# config.example.json is the defaults layer, so a trimmed config.json doesn't trip StrictMode. Its
+# repos, tiers and tool lists are samples: a config.json without them watches no repos, gets one
+# built-in tier and only Sam's three read-only tools. Values are checked here, before any PR is touched.
 function Get-Config {
     $path = Join-Path $Root 'config.json'
     if (-not (Test-Path $path)) {
         throw "No config.json. Copy config.example.json to config.json and fill it in."
     }
+    $defaults = Read-ConfigExample
+    $defaults.repos = [pscustomobject]@{}
+    $defaults.reviewSkill.tiers = @()
+    $defaults.allowedTools = @('Read', 'Grep', 'Glob')
+    $defaults.disallowedTools = @()
     $config = Read-Utf8 $path | ConvertFrom-Json
-    foreach ($key in $ConfigDefaults.Keys) {
-        $default = $ConfigDefaults[$key]
+    foreach ($default in $defaults.PSObject.Properties) {
+        $key = $default.Name
         if (-not $config.PSObject.Properties[$key]) {
-            $config | Add-Member -NotePropertyName $key -NotePropertyValue $default
-        } elseif ($default -is [pscustomobject] -and $key -ne 'repos' -and $config.$key -is [pscustomobject]) {
+            $config | Add-Member -NotePropertyName $key -NotePropertyValue $default.Value
+        } elseif ($default.Value -is [Management.Automation.PSCustomObject] -and $config.$key -is [Management.Automation.PSCustomObject]) {
             # Nested settings such as codexReview get their missing keys filled too.
-            foreach ($sub in $default.PSObject.Properties) {
+            foreach ($sub in $default.Value.PSObject.Properties) {
                 if (-not $config.$key.PSObject.Properties[$sub.Name]) {
                     $config.$key | Add-Member -NotePropertyName $sub.Name -NotePropertyValue $sub.Value
                 }
             }
+        }
+    }
+    if (@('app', 'me') -notcontains $config.postAs) { throw "postAs in config.json must be 'app' or 'me', not '$($config.postAs)'" }
+    if ([string] $config.codexReview.waitMinutes -notmatch '^\d+(\.\d+)?$') {
+        throw "codexReview.waitMinutes in config.json must be a number of minutes, not '$($config.codexReview.waitMinutes)'"
+    }
+    foreach ($entry in @($config.reviewSkill.scaffold | Where-Object { [string] $_ })) {
+        if ([IO.Path]::IsPathRooted([string] $entry) -or [string] $entry -match '(^|[\\/])\.\.([\\/]|$)') {
+            throw "reviewSkill.scaffold entry '$entry' in config.json must be a relative path inside the run directory"
         }
     }
     return $config
@@ -193,15 +173,20 @@ function Get-RepoConfig($Config, [string] $Repo) {
 # ---------------------------------------------------------------- GitHub
 
 function Get-RequestedPrUrls($Config) {
-    $json = Invoke-Native 'gh' @('api', '-X', 'GET', 'search/issues', '-f', "q=$($Config.searchQuery)", '-f', 'per_page=50')
-    return @(($json | ConvertFrom-Json).items | ForEach-Object { $_.html_url })
+    $pages = Invoke-Native 'gh' @('api', '--paginate', '--slurp', '-X', 'GET', 'search/issues', '-f', "q=$($Config.searchQuery)", '-f', 'per_page=100') | ConvertFrom-Json
+    return @($pages | ForEach-Object { $_ } | ForEach-Object { $_.items } | ForEach-Object { $_.html_url })
 }
 
 function Get-PrInfo([string] $Url) {
     $json = Invoke-Native 'gh' @('pr', 'view', $Url, '--json', 'number,title,author,headRefName,headRefOid,baseRefName,url,isDraft,state,additions,deletions')
     $pr = $json | ConvertFrom-Json
     $pr | Add-Member -NotePropertyName repo -NotePropertyValue (Split-PrUrl $pr.url).Repo
+    $pr | Add-Member -NotePropertyName changedLines -NotePropertyValue ([int] $pr.additions + [int] $pr.deletions)
     return $pr
+}
+
+function Get-PrSlug($Info) {
+    return ($Info.repo -replace '/', '-') + "-$($Info.number)"
 }
 
 # Sam's session has no gh api, so the script fetches the unresolved threads and quotes them in the prompt.
@@ -217,7 +202,7 @@ function Get-OpenThreads($Info, $Threads) {
 }
 
 function Get-ReviewThreads($Info) {
-    $query = 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved isOutdated path line comments(first:50){totalCount nodes{databaseId author{login __typename} body createdAt}}}}}}}'
+    $query = 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved isOutdated path line comments(first:50){nodes{databaseId author{login __typename} body}}}}}}}'
     $owner, $name = $Info.repo.Split('/')
     $json = Invoke-Native 'gh' @('api', 'graphql', '-f', "query=$query", '-f', "owner=$owner", '-f', "name=$name", '-F', "number=$($Info.number)")
     return @(($json | ConvertFrom-Json).data.repository.pullRequest.reviewThreads.nodes)
@@ -277,13 +262,13 @@ function Format-Threads($Threads) {
     return ($lines -join "`n").TrimEnd()
 }
 
-# Sam's login as GraphQL shows it: the app's slug, or yours with postAs 'me'. Looked up once per run.
+# Sam's login as GraphQL shows it: the app's slug, or yours with postAs 'me'. Looked up once per poll.
 # If it can't be worked out (no slug and no imported key yet, say), it's '' and no thread counts as
 # Sam's, so a draft-only run still sees every open thread.
 function Get-SamLogin {
     if ($null -eq $script:SamLogin) {
         $config = Get-Config
-        $slug = if ($config.githubApp.PSObject.Properties['slug']) { [string] $config.githubApp.slug } else { '' }
+        $slug = [string] $config.githubApp.slug
         $script:SamPostsAsMe = $config.postAs -eq 'me'
         try {
             $script:SamLogin = if ($config.postAs -eq 'me') { (Invoke-Native 'gh' @('api', 'user', '--jq', '.login')).Trim() }
@@ -341,15 +326,13 @@ function Test-InDiff($DiffLines, [string] $Path, [int] $Line, [string] $Side) {
 
 # The review tiers, by changed lines (additions + deletions). Each picks the review skill for step 3
 # (name; empty means Sam's built-in review), how many reviewers it spawns, and their model (empty
-# means 'model'). From reviewSkill.tiers; a config with only the older top-level 'tiers' (teamReview
-# instead of name) still works. With neither, one built-in tier.
+# means 'model'). From reviewSkill.tiers; with none, one built-in tier.
 function Get-ReviewTiers($Config) {
     $raw = @($Config.reviewSkill.tiers | Where-Object { $_ })
-    if ($raw.Count -eq 0 -and $Config.PSObject.Properties['tiers']) { $raw = @($Config.tiers | Where-Object { $_ }) }
     if ($raw.Count -eq 0) { $raw = @([pscustomobject]@{ maxChangedLines = 0 }) }
     $tiers = @(foreach ($t in $raw) {
         $get = { param($Name, $Default) if ($t.PSObject.Properties[$Name] -and $null -ne $t.$Name -and [string] $t.$Name -ne '') { $t.$Name } else { $Default } }
-        $name = [string] (& $get 'name' (& $get 'teamReview' ''))
+        $name = [string] (& $get 'name' '')
         if ($name -and $name -notmatch '^[\w.:-]+$') { throw "Review skill name '$name' in config.json isn't a skill name (letters, digits, '.', ':', '-', '_')" }
         [pscustomobject]@{
             maxChangedLines = [int] (& $get 'maxChangedLines' 0)
@@ -370,7 +353,6 @@ function Get-ReviewTiers($Config) {
     return $tiers
 }
 
-# The first tier whose maxChangedLines covers the change wins; 0 means no limit.
 function Select-Tier($Config, [int] $ChangedLines) {
     $tiers = @(Get-ReviewTiers $Config)
     foreach ($tier in $tiers) {
@@ -526,13 +508,11 @@ function Invoke-AppApi([string] $Method, [string] $Path, [string] $Authorization
 # paths, ...), and no path rule closes every route, so a readable PEM could be quoted into a review.
 # Read through any route, this file is useless anywhere else.
 $KeyEntropy = [Text.Encoding]::UTF8.GetBytes('sam github app key')
-$DefaultKeyFile = '%USERPROFILE%\.config\sam\github-app-key.bin'
+$DefaultKeyFile = (Read-ConfigExample).githubApp.keyFile
 
 function Get-AppKeyFile($Config) {
-    $app = $Config.githubApp
-    $path = if ($app.PSObject.Properties['keyFile']) { [string] $app.keyFile } else { '' }
+    $path = [Environment]::ExpandEnvironmentVariables([string] $Config.githubApp.keyFile)
     if (-not $path) { return $null }
-    $path = [Environment]::ExpandEnvironmentVariables($path)
     if (-not [IO.Path]::IsPathRooted($path)) { $path = Join-Path $Root $path }
     return $path
 }
@@ -555,8 +535,8 @@ function Read-AppKey($Config) {
     return [Text.Encoding]::ASCII.GetString($plain)
 }
 
-# DPAPI only helps if no plain copy is lying around. Sam's session can read outside the worktree, and
-# this folder's path is in every prompt, so refuse to start one while a .pem sits in it.
+# DPAPI only helps if no plain copy is lying around, and this folder's path is in every prompt, so
+# refuse to start a session while a .pem sits in it.
 function Assert-NoPlainKey {
     $found = @(Get-ChildItem -LiteralPath $Root -Recurse -Depth 3 -File -Filter '*.pem' -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -notmatch '\\\.work\\' })
@@ -579,16 +559,22 @@ function Import-AppKey($Config, [string] $PemPath) {
     $dir = Split-Path $out -Parent
     if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
 
+    # Sealed and checked in a temp file first, so a wrong .pem never replaces a working key.
+    $temp = "$out.new"
     Add-Type -AssemblyName System.Security
     $sealed = [Security.Cryptography.ProtectedData]::Protect([Text.Encoding]::ASCII.GetBytes($pem), $KeyEntropy, 'CurrentUser')
-    [IO.File]::WriteAllBytes($out, $sealed)
-    Invoke-Native 'icacls' @($out, '/inheritance:r', '/grant:r', "$env:USERDOMAIN\${env:USERNAME}:(F)") | Out-Null
-
-    $appId = if ($Config.githubApp.PSObject.Properties['appId']) { [string] $Config.githubApp.appId } else { '' }
-    if ($appId) {
-        $Config.githubApp | Add-Member -NotePropertyName keyFile -NotePropertyValue $out -Force
-        $slug = (Invoke-AppApi 'GET' 'app' ('Bearer ' + (New-AppJwt $appId (Read-AppKey $Config)))).slug
-        Write-Host "Key works: signed in as the $slug app."
+    try {
+        [IO.File]::WriteAllBytes($temp, $sealed)
+        Invoke-Native 'icacls' @($temp, '/inheritance:r', '/grant:r', "$env:USERDOMAIN\${env:USERNAME}:(F)") | Out-Null
+        $appId = [string] $Config.githubApp.appId
+        if ($appId) {
+            $Config.githubApp.keyFile = $temp
+            $slug = (Invoke-AppApi 'GET' 'app' ('Bearer ' + (New-AppJwt $appId (Read-AppKey $Config)))).slug
+            Write-Host "Key works: signed in as the $slug app."
+        }
+        Move-Item -LiteralPath $temp -Destination $out -Force
+    } finally {
+        Remove-Item -LiteralPath $temp -ErrorAction SilentlyContinue
     }
     Write-Host "Encrypted key written to $out (only your Windows account on this PC can use it)."
     if ($configured -ne $out) { Write-Host "Set githubApp.keyFile in config.json to that path." }
@@ -596,15 +582,12 @@ function Import-AppKey($Config, [string] $PemPath) {
 }
 
 # postAs 'me': returns $null and gh posts as whoever `gh auth status` shows (you).
-# postAs 'app': returns the app's bot login and an installation token narrowed to writing pull
-# request reviews on this one repo. The app itself has more (see TODO.md); the token never does.
+# postAs 'app': returns the app's bot login and a token for pull requests write on this one repo.
 # Detection and PR lookups keep using your gh login, because "requested as reviewer" is about you.
 function Get-PostingToken($Config, [string] $Repo) {
     if ($Config.postAs -eq 'me') { return $null }
-    if ($Config.postAs -ne 'app') { throw "postAs in config.json must be 'app' or 'me', not '$($Config.postAs)'" }
 
-    $app = $Config.githubApp
-    $appId = if ($app.PSObject.Properties['appId']) { [string] $app.appId } else { '' }
+    $appId = [string] $Config.githubApp.appId
     if (-not $appId) { throw "postAs is 'app' but githubApp.appId is empty in config.json" }
 
     $jwt = 'Bearer ' + (New-AppJwt $appId (Read-AppKey $Config))
@@ -684,7 +667,7 @@ function Sync-PrRefs([string] $Clone, $Info) {
 
 # -Suffix gives Codex a checkout of its own, so it never sees Sam's temporary experiments.
 function New-Worktree([string] $Clone, $Info, [string] $Suffix = '') {
-    $worktree = Join-Path $WorkDir ('wt\' + ($Info.repo -replace '/', '-') + "-$($Info.number)$Suffix")
+    $worktree = Join-Path $WorkDir ('wt\' + (Get-PrSlug $Info) + $Suffix)
     Remove-Worktree $Clone $worktree
     Invoke-Native 'git' @('-C', $Clone, 'worktree', 'add', '--quiet', '--detach', $worktree, $Info.headRefOid) | Out-Null
     return $worktree
@@ -693,18 +676,14 @@ function New-Worktree([string] $Clone, $Info, [string] $Suffix = '') {
 # The review's run directory: the one place outside the worktree where Sam and any reviewers it spawns
 # may write. It sits outside the worktree because some review skills block their reviewers from writing
 # inside the repository under review. reviewSkill.scaffold lays it out the way the configured skill
-# expects: entries ending in / become folders, the rest empty files. Kept after the run for a look at
-# the reports; .work is safe to clear.
+# expects (Get-Config checked the entries): entries ending in / become folders, the rest empty files.
+# Kept after the run for a look at the reports; only .work\runs is safe to clear.
 function New-RunDir($Config, $Info) {
-    $name = ($Info.repo -replace '/', '-') + "-$($Info.number)-$($Info.headRefOid.Substring(0, 7))-" + (Get-Date -Format 'yyyyMMdd-HHmmss')
+    $name = (Get-PrSlug $Info) + "-$($Info.headRefOid.Substring(0, 7))-" + (Get-Date -Format 'yyyyMMdd-HHmmss')
     $runDir = Join-Path $WorkDir "runs\$name"
     New-Item -ItemType Directory -Force $runDir | Out-Null
-    foreach ($entry in @($Config.reviewSkill.scaffold)) {
+    foreach ($entry in @($Config.reviewSkill.scaffold | Where-Object { [string] $_ })) {
         $entry = [string] $entry
-        if (-not $entry) { continue }
-        if ([IO.Path]::IsPathRooted($entry) -or $entry -match '(^|[\\/])\.\.([\\/]|$)') {
-            throw "reviewSkill.scaffold entry '$entry' must be a relative path inside the run directory"
-        }
         $path = Join-Path $runDir ($entry.TrimEnd('/', '\'))
         if ($entry -match '[\\/]$') {
             New-Item -ItemType Directory -Force $path | Out-Null
@@ -731,8 +710,7 @@ function ConvertTo-EditRule([string] $Path) {
 # execpolicy allow rules (such as one for dotnet test). --ignore-user-config isn't used: without the
 # user's config, Codex's sandbox blocks even git diff, and it still exits 0.
 function Start-CodexReview($Config, $Info, [string] $Worktree, [string] $Base) {
-    $settings = $Config.codexReview
-    if (-not $settings -or -not $settings.enabled) { return $null }
+    if (-not $Config.codexReview.enabled) { return $null }
     $codex = Get-Command codex -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $codex) {
         Write-Warning "Codex isn't on PATH, so Sam reviews without it."
@@ -740,7 +718,7 @@ function Start-CodexReview($Config, $Info, [string] $Worktree, [string] $Base) {
     }
     $dir = Join-Path $WorkDir 'codex'
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory $dir | Out-Null }
-    $name = ($Info.repo -replace '/', '-') + "-$($Info.number)"
+    $name = Get-PrSlug $Info
     $out = Join-Path $dir "$name.md"
     $stdin = Join-Path $dir 'empty.txt'
     Write-Utf8 $stdin ''
@@ -811,35 +789,25 @@ function Expand-Template([string] $File, $Values) {
 # $Values, which hold only values the script controls, never PR text.
 function Format-ReviewStep($Config, $Tier, $Values, [switch] $Followup) {
     $scope = if ($Followup) { 'the new-changes diff above' } else { '`git diff {{merge_base}} HEAD`' }
-    $builtIn = @(
+    $lenses = @(
         "Review the diff through each of these lenses in turn: correctness and error handling, security, tests, design and fit with the repo's documented standards, and documentation accuracy.",
-        'You may spawn up to {{reviewer_count}} subagents with the Agent tool to take lenses in parallel. Spawn them in the foreground, all in one message, with `model: "{{reviewer_model}}"`, so they report back before you continue. Background agents can''t report back in this session.',
-        'Notes and reports can go in the run directory at `{{run_dir}}`. It''s outside the checkout, and it''s the one place outside it you and any subagents can write.'
+        'You may spawn up to {{reviewer_count}} subagents with the Agent tool to take lenses in parallel. Spawn them in the foreground, all in one message, with `model: "{{reviewer_model}}"`, so they report back before you continue. Background agents can''t report back in this session.'
     )
+    $runDirNote = 'Use the run directory that''s already created at `{{run_dir}}` for notes and reports, and don''t create another one. It''s outside the checkout, and it''s the one place outside it you and any reviewers can write.'
     $name = [string] $Tier.name
-    $size = if ($Followup) { 'This change is {{changed_lines}} lines' } else { 'This PR changes {{changed_lines}} lines' }
-    $instructions = @($Config.reviewSkill.instructions | Where-Object { [string] $_ })
-    $fallback = "If the Skill tool can't find ``$name``, say so in ``notes_for_jg`` and run the built-in review instead. " + ($builtIn[0..1] -join ' ')
-    if ($Followup) {
-        $text = if ($name) {
-            "$size, so it gets ``$name``. Invoke it with the Skill tool, scoped to $scope. Use the run directory at ``{{run_dir}}``. " +
-                (@($instructions) + $fallback -join ' ')
-        } else {
-            "Run the built-in review, scoped to ${scope}: " + ($builtIn -join ' ')
-        }
-        return Expand-Text $text $Values
-    }
-    $lines = New-Object System.Collections.Generic.List[string]
-    if (-not $name) {
-        $lines.Add("3. **Review it.** Run the built-in review, scoped to ${scope}:")
-        foreach ($b in $builtIn) { $lines.Add("   - $b") }
+    if ($name) {
+        $heading = '**Run the review skill.**'
+        $size = if ($Followup) { 'This change is' } else { 'This PR changes' }
+        $intro = "$size {{changed_lines}} lines, so it gets ``$name``. Invoke it with the Skill tool, scoped to $scope."
+        $parts = @($runDirNote) + @($Config.reviewSkill.instructions | Where-Object { [string] $_ }) +
+            ("If the Skill tool can't find ``$name``, say so in ``notes_for_jg`` and run the built-in review instead. " + ($lenses -join ' '))
     } else {
-        $lines.Add("3. **Run the review skill.** $size, so it gets ``$name``. Invoke it with the Skill tool, scoped to $scope. In this session:")
-        $lines.Add('   - Use the run directory that''s already created at `{{run_dir}}`. Don''t create another one. It''s outside the checkout, and it''s the one place outside it you and the skill''s reviewers can write.')
-        foreach ($i in $instructions) { $lines.Add("   - $i") }
-        $lines.Add("   - $fallback")
+        $heading = '**Review it.**'
+        $intro = "Run the built-in review, scoped to ${scope}:"
+        $parts = $lenses + $runDirNote
     }
-    return Expand-Text ($lines -join "`n") $Values
+    $text = if ($Followup) { (@($intro) + $parts) -join ' ' } else { "$heading $intro`n" + (@($parts | ForEach-Object { "   - $_" }) -join "`n") }
+    return Expand-Text $text $Values
 }
 
 # The values every review template shares. $Plan carries the tier and, for a follow-up, its scope.
@@ -853,22 +821,22 @@ function Get-PromptValues($Config, $Info, [string] $Worktree, [string] $RunDir, 
         reviewer_count = [string] $Plan.Tier.reviewers
         reviewer_model = $Plan.Tier.reviewerModel
     }
-    return [ordered]@{
+    $values = [ordered]@{
         repo           = $Info.repo
         number         = [string] $Info.number
         head_ref       = $Info.headRefName
         base_ref       = $Info.baseRefName
-        merge_base     = $Info.mergeBase
         head_sha       = $Info.headRefOid
         url            = $Info.url
-        worktree       = $Worktree
-        run_dir        = $RunDir
-        changed_lines  = [string] $Plan.ChangedLines
         review_step    = Format-ReviewStep $Config $Plan.Tier $trusted -Followup:$Followup
         title          = Protect-Quoted $Info.title
         author         = Protect-Quoted $Info.author.login
         open_threads   = Protect-Quoted (Get-OpenThreads $Info $Threads)
     }
+    foreach ($key in 'merge_base', 'worktree') { $values[$key] = $trusted[$key] }
+    # The header both task templates share. Expand-Text is single-pass, so PR text in it stays literal.
+    $values.pr_header = (Expand-Template 'sam-pr-header.md' $values).TrimEnd()
+    return $values
 }
 
 function New-SamPrompt($Config, $Info, [string] $Worktree, [string] $RunDir, $Plan, $Threads) {
@@ -891,7 +859,7 @@ function New-FollowupPrompt($Config, $Info, [string] $Worktree, [string] $RunDir
         # in a fenced block, so a backtick in a name can't break out of it.
         $paths = @($Plan.Files | ForEach-Object { '"' + $_ + '"' }) -join ' '
         $fence = '```'
-        "The author pushed new commits. The new changes are $($Plan.ChangedLines) lines in the PR's files, shown by this command (the file names are quoted data from the PR):`n$fence" + "text`n" +
+        "The author pushed new commits. The new changes are $($Plan.ChangedLines) lines in the files changed since Sam's review, shown by this command (the file names are quoted data from the PR):`n$fence" + "text`n" +
             (Protect-Quoted "git diff $base HEAD -- $paths") + "`n$fence`nReview only those.$merged"
     } else {
         "This time Sam only answers the replies waiting in Sam's threads: skip step 2, and leave ``comments``, ``minor_notes`` and ``summary`` empty. ``git log $($Plan.ReviewedSha)..HEAD`` shows any commits since Sam's review, which a reply may point to."
@@ -920,9 +888,9 @@ function New-SystemPromptFile {
 # $RunDir is the review's run directory, the one place outside the worktree Sam may write.
 function Invoke-Sam($Config, [string] $Prompt, [string] $Worktree, [string] $RunDir, [string] $ResumeSession) {
     Assert-NoPlainKey
-    # Compressed JSON only has spaces inside strings; \u0020 keeps it valid JSON and keeps 5.1's
-    # argument quoting from splitting it.
-    $schema = (Read-Utf8 (Join-Path $Root 'review-schema.json') | ConvertFrom-Json | ConvertTo-Json -Depth 20 -Compress).Replace(' ', '\u0020')
+    # Compressed JSON only has spaces and escaped quotes inside strings; \u0020 and \u0022 keep it
+    # valid JSON and keep 5.1's argument quoting from splitting or stripping it.
+    $schema = (Read-Utf8 (Join-Path $Root 'review-schema.json') | ConvertFrom-Json | ConvertTo-Json -Depth 20 -Compress).Replace(' ', '\u0020').Replace('\"', '\u0022')
     # The worktree is the PR's code, and -p skips the workspace trust prompt. Load only your user
     # settings and no MCP servers, so the PR's .claude/settings.json hooks and .mcp.json never run.
     # dontAsk refuses every tool outside the lists below, whatever default mode your user settings set.
@@ -975,7 +943,7 @@ function Invoke-Sam($Config, [string] $Prompt, [string] $Worktree, [string] $Run
 
 # A re-run on the same commit (-Force) gets a new suffix instead of overwriting an earlier draft.
 function Get-DraftBase($Info) {
-    $base = Join-Path $DraftDir (($Info.repo -replace '/', '-') + "-$($Info.number)-$($Info.headRefOid.Substring(0, 7))")
+    $base = Join-Path $DraftDir ((Get-PrSlug $Info) + "-$($Info.headRefOid.Substring(0, 7))")
     $candidate = $base
     $n = 2
     while (Test-Path "$candidate.json") { $candidate = "$base-$n"; $n++ }
@@ -992,13 +960,12 @@ function Format-NoteBullets($Notes) {
 }
 
 function Get-ExtraNotes($Review) {
-    if (-not $Review.PSObject.Properties['extra_minor_notes']) { return @() }
     return @($Review.extra_minor_notes | Where-Object { $_ })
 }
 
 function Format-DraftPreview($Draft) {
     $review = $Draft.review
-    $mode = Get-DraftField $Draft 'mode' 'full'
+    $mode = $Draft.mode
     $lines = New-Object System.Collections.Generic.List[string]
     $lines.Add("# Sam's draft: $($Draft.repo)#$($Draft.number) @ $($Draft.head_sha.Substring(0, 7))")
     $lines.Add('')
@@ -1097,17 +1064,12 @@ function Save-Draft($Info, $Result, [string] $CodexReview, $Plan) {
 
 $CommentTags = @{ blocking = '[Blocking] '; needs_decision = '[Needs a decision] '; optional = '[Optional] ' }
 
-# Drafts from before categories carry only a 'blocking' flag.
 function Get-CommentTag($Comment) {
-    $props = $Comment.PSObject.Properties
-    if ($props['category'] -and $CommentTags.ContainsKey([string] $Comment.category)) { return $CommentTags[[string] $Comment.category] }
-    if ($props['blocking'] -and $Comment.blocking) { return $CommentTags['blocking'] }
-    return ''
+    return [string] $CommentTags[[string] $Comment.category]
 }
 
 # The minor and nitpick findings as one short comment, or $null when there are none.
 function Format-MinorNotes($Review) {
-    if (-not $Review.PSObject.Properties['minor_notes']) { return $null }
     # The schema caps the list at 10; this makes sure of it.
     $notes = @($Review.minor_notes | Where-Object { $_ } | Select-Object -First 10)
     if ($notes.Count -eq 0) { return $null }
@@ -1147,31 +1109,17 @@ function Send-ThreadReply([string] $Repo, [int] $Number, [long] $CommentId, [str
     return (Invoke-GhWrite 'POST' "repos/$Repo/pulls/$Number/comments/$CommentId/replies" ([ordered]@{ body = $Body }) $Identity).html_url
 }
 
-# An eyes reaction on the PR while Sam works, as the app, only when Sam will post. Failing to add or remove it never
-# stops a review.
-function Add-StartReaction($Config, $Info) {
-    if (-not $Post -or $Config.postAs -ne 'app' -or -not $Config.startReaction) { return $null }
+# The eyes reaction on the PR while Sam works, as the app. Without $ReactionId it adds one and returns
+# its id; with it, it removes that one. A failure only warns, so it never stops a review.
+function Set-StartReaction($Config, $Info, $ReactionId) {
     $identity = $null
+    $path = "repos/$($Info.repo)/issues/$($Info.number)/reactions"
     try {
         $identity = Get-PostingToken $Config $Info.repo
-        $reaction = Invoke-GhWrite 'POST' "repos/$($Info.repo)/issues/$($Info.number)/reactions" ([ordered]@{ content = 'eyes' }) $identity
-        return $reaction.id
+        if ($ReactionId) { Invoke-GhWrite 'DELETE' "$path/$ReactionId" $null $identity | Out-Null; return }
+        return (Invoke-GhWrite 'POST' $path ([ordered]@{ content = 'eyes' }) $identity).id
     } catch {
-        Write-Warning "Couldn't add the eyes reaction: $($_.Exception.Message)"
-        return $null
-    } finally {
-        Revoke-PostingToken $identity
-    }
-}
-
-function Remove-StartReaction($Config, $Info, $ReactionId) {
-    if (-not $ReactionId) { return }
-    $identity = $null
-    try {
-        $identity = Get-PostingToken $Config $Info.repo
-        Invoke-GhWrite 'DELETE' "repos/$($Info.repo)/issues/$($Info.number)/reactions/$ReactionId" $null $identity | Out-Null
-    } catch {
-        Write-Warning "Couldn't remove the eyes reaction: $($_.Exception.Message)"
+        Write-Warning "Couldn't $(if ($ReactionId) { 'remove' } else { 'add' }) the eyes reaction: $($_.Exception.Message)"
     } finally {
         Revoke-PostingToken $identity
     }
@@ -1200,20 +1148,15 @@ function Write-PostedComments($Draft, $Review, $Comments) {
             })
         }
     } catch {
-        Write-Warning "Posted, but couldn't log the comments for -Outcomes: $($_.Exception.Message)"
+        Write-Warning "Posted, but couldn't log the comments, so -Outcomes won't count them (and with postAs 'me', Sam won't know these threads as its own): $($_.Exception.Message)"
     }
-}
-
-function Get-DraftField($Draft, [string] $Name, $Default) {
-    if ($Draft.PSObject.Properties[$Name]) { return $Draft.$Name }
-    return $Default
 }
 
 # Whether the draft has a review to post: always for a full review. A follow-up needs a summary or an
 # inline comment, since GitHub rejects a review with neither. Its minor list can post on its own.
 function Test-ReviewContent($Draft) {
     $review = $Draft.review
-    if ((Get-DraftField $Draft 'mode' 'full') -eq 'full') { return $true }
+    if ($Draft.mode -eq 'full') { return $true }
     return @($review.comments).Count -gt 0 -or [bool] ([string] $review.summary).Trim()
 }
 
@@ -1222,9 +1165,8 @@ function Test-ReviewWanted($Draft) {
     return (Test-ReviewContent $Draft) -or [bool] (Format-MinorNotes $Draft.review)
 }
 
-# A thread answer's reaction, or '' for none. Older drafts have no reaction field.
+# A thread answer's reaction, or '' for none.
 function Get-ReplyReaction($Reply) {
-    if (-not $Reply.PSObject.Properties['reaction']) { return '' }
     $reaction = [string] $Reply.reaction
     if (@('+1', 'hooray', 'heart') -contains $reaction) { return $reaction }
     return ''
@@ -1232,20 +1174,14 @@ function Get-ReplyReaction($Reply) {
 
 # Thread answers with something to post: a reply, a reaction, or both.
 function Get-ThreadReplies($Review) {
-    if (-not $Review.PSObject.Properties['thread_replies']) { return @() }
     return @($Review.thread_replies | Where-Object { $_ -and (([string] $_.body).Trim() -or (Get-ReplyReaction $_)) })
 }
 
 # Posts what a draft holds and hasn't posted yet: the review, then the minor list, then thread replies.
-# Each part is saved to the draft as soon as it posts, so a rerun never posts anything twice.
+# Each part is saved to the draft as soon as it posts, so a rerun skips whatever the draft records as posted.
 function Publish-Draft($Config, [string] $DraftPath, [switch] $AllowNewerHead) {
     $draft = Read-Utf8 $DraftPath | ConvertFrom-Json
-    foreach ($field in @('posted_minor_url', 'codex_review', 'posted_replies', 'posted_reactions', 'mode')) {
-        if (-not $draft.PSObject.Properties[$field]) { $draft | Add-Member -NotePropertyName $field -NotePropertyValue $null }
-    }
-    if (-not $draft.mode) { $draft.mode = 'full' }
-    if (-not $draft.posted_replies) { $draft.posted_replies = [pscustomobject]@{} }
-    if (-not $draft.posted_reactions) { $draft.posted_reactions = [pscustomobject]@{} }
+    $saveDraft = { Write-Utf8 $DraftPath ($draft | ConvertTo-Json -Depth 20) }
     $review = $draft.review
     $minorBody = Format-MinorNotes $review
     $replyLeft = { param($r) ([string] $r.body).Trim() -and -not $draft.posted_replies.PSObject.Properties[[string] $r.comment_id] }
@@ -1347,7 +1283,7 @@ function Publish-Draft($Config, [string] $DraftPath, [switch] $AllowNewerHead) {
             }
             # Saved before anything else posts, so a later failure can't lead to the review posting twice.
             $draft.posted_url = $posted.html_url
-            Write-Utf8 $DraftPath ($draft | ConvertTo-Json -Depth 20)
+            & $saveDraft
             if ($meta.Count) { Write-PostedComments $draft $posted $meta.ToArray() }
         }
         if ($minorLeft) {
@@ -1357,7 +1293,7 @@ function Publish-Draft($Config, [string] $DraftPath, [switch] $AllowNewerHead) {
                 $done = if ($draft.posted_url) { "The review posted ($($draft.posted_url)), but the" } else { 'The' }
                 throw "$done minor list didn't post: $($_.Exception.Message) Run -PostDraft again to post what's left."
             }
-            Write-Utf8 $DraftPath ($draft | ConvertTo-Json -Depth 20)
+            & $saveDraft
         }
         foreach ($r in $replies) {
             $id = [string] $r.comment_id
@@ -1365,7 +1301,7 @@ function Publish-Draft($Config, [string] $DraftPath, [switch] $AllowNewerHead) {
                 Write-Host "Replying in Sam's thread $id"
                 $url = Send-ThreadReply $draft.repo $draft.number ([long] $r.comment_id) $r.body $identity
                 $draft.posted_replies | Add-Member -NotePropertyName $id -NotePropertyValue $url
-                Write-Utf8 $DraftPath ($draft | ConvertTo-Json -Depth 20)
+                & $saveDraft
             }
             if (& $reactionLeft $r) {
                 $reaction = Get-ReplyReaction $r
@@ -1380,7 +1316,7 @@ function Publish-Draft($Config, [string] $DraftPath, [switch] $AllowNewerHead) {
                     'skipped'
                 }
                 $draft.posted_reactions | Add-Member -NotePropertyName $id -NotePropertyValue $done
-                Write-Utf8 $DraftPath ($draft | ConvertTo-Json -Depth 20)
+                & $saveDraft
             }
         }
     } finally {
@@ -1389,19 +1325,19 @@ function Publish-Draft($Config, [string] $DraftPath, [switch] $AllowNewerHead) {
     return $draft
 }
 
-function Test-AnythingPosted($Draft) {
-    return [bool] ((Get-DraftField $Draft 'posted_url' $null) -or (Get-DraftField $Draft 'posted_minor_url' $null) -or
-        ((Get-DraftField $Draft 'posted_replies' $null) -and @($Draft.posted_replies.PSObject.Properties).Count) -or
-        ((Get-DraftField $Draft 'posted_reactions' $null) -and @($Draft.posted_reactions.PSObject.Properties).Count))
+# How many parts of a draft have posted: the review, the minor list, each reply and each reaction.
+function Get-PostedCount($Draft) {
+    return @(@($Draft.posted_url, $Draft.posted_minor_url) | Where-Object { $_ }).Count +
+        @($Draft.posted_replies.PSObject.Properties).Count + @($Draft.posted_reactions.PSObject.Properties).Count
 }
 
-# After a post, even a partial one: the commit Sam has now covered, for the next follow-up. That's the
-# draft's commit once its review is up, or right away for a follow-up with no review to post. A
-# replies-only run covers no new code, so it leaves reviewed_sha alone.
+# After a draft's first post, even a partial one: the commit Sam has now covered, for the next
+# follow-up. That's the draft's commit once its review is up, or right away for a follow-up with no
+# review to post. A replies-only run covers no new code, so it leaves reviewed_sha alone. Callers skip
+# this for a draft that had already posted, so finishing an older draft can't rewind the record.
 function Update-PrRecord([hashtable] $State, $Draft) {
     $record = Get-PrRecord $State $Draft.url
-    $mode = Get-DraftField $Draft 'mode' 'full'
-    if ($mode -ne 'replies' -and ($Draft.posted_url -or -not (Test-ReviewContent $Draft))) { $record.reviewed_sha = $Draft.head_sha }
+    if ($Draft.mode -ne 'replies' -and ($Draft.posted_url -or -not (Test-ReviewContent $Draft))) { $record.reviewed_sha = $Draft.head_sha }
     if ($Draft.posted_url) { $record.review_url = $Draft.posted_url }
     $record.closed = $false
     $State["pr:$($Draft.url)"] = $record
@@ -1413,7 +1349,10 @@ function Update-PrRecord([hashtable] $State, $Draft) {
 function Test-Ancestor([string] $Clone, [string] $Old, [string] $New) {
     $ErrorActionPreference = 'Continue'
     & git -C $Clone cat-file -e "$Old^{commit}" 2>$null
-    if ($LASTEXITCODE -ne 0) { & git -C $Clone fetch -q origin $Old 2>$null }
+    if ($LASTEXITCODE -ne 0) {
+        try { Invoke-Native 'git' @('-C', $Clone, 'fetch', '-q', 'origin', $Old) | Out-Null }
+        catch { Write-Warning "Couldn't fetch $Old to check the branch's history: $($_.Exception.Message)" }
+    }
     & git -C $Clone merge-base --is-ancestor $Old $New 2>$null
     return $LASTEXITCODE -eq 0
 }
@@ -1429,7 +1368,7 @@ function New-ReviewPlan($Config, [hashtable] $State, $Info, [switch] $RepliesOnl
     $record = Get-PrRecord $State $Info.url
     $headDone = $State.ContainsKey("$($Info.url)@$($Info.headRefOid)") -or $record.reviewed_sha -eq $Info.headRefOid
     $plan = [pscustomobject]@{ Mode = 'full'; ReviewedSha = $null; DiffBase = $null; Files = @(); Pending = @(); Threads = $null
-        ChangedLines = [int] $Info.additions + [int] $Info.deletions; Tier = $null }
+        ChangedLines = $Info.changedLines; Tier = $null }
     if ($Config.followUps -and $record.reviewed_sha) {
         try {
             $plan.Threads = @(Get-ReviewThreads $Info)
@@ -1468,30 +1407,25 @@ function Get-FollowupBase([string] $Clone, [string] $Prev, $Info) {
     }
 }
 
-# Narrows a follow-up to the new commits, once there's a clone. If Sam's reviewed commit is no longer
-# in the branch (a force push), it's a full review again. New commits that touch none of the PR's files,
-# such as a merge from the base branch, leave only replies, or nothing.
+# Narrows a follow-up to the new commits, once there's a clone. A force push, or a base-branch merge
+# Get-FollowupBase can't separate out, makes it a full review again. New commits that change nothing
+# against the follow-up's base (only a base-branch merge, say) leave only replies, or nothing.
 function Complete-Plan($Config, $Plan, $Info, [string] $Clone) {
     if ($Plan.Mode -ne 'followup') { return }
     $prev = $Plan.ReviewedSha
-    if (-not (Test-Ancestor $Clone $prev $Info.headRefOid)) {
+    $base = $null
+    if (Test-Ancestor $Clone $prev $Info.headRefOid) {
+        $base = Get-FollowupBase $Clone $prev $Info
+    } else {
         Write-Warning "Sam's last reviewed commit $($prev.Substring(0, 7)) isn't in the branch any more (force push?), so this is a full review."
-        $Plan.Mode = 'full'
-        $Plan.ReviewedSha = $null
-        $Plan.ChangedLines = [int] $Info.additions + [int] $Info.deletions
-        $Plan.Tier = Select-Tier $Config $Plan.ChangedLines
-        return
     }
-    $base = Get-FollowupBase $Clone $prev $Info
     if (-not $base) {
         $Plan.Mode = 'full'
         $Plan.ReviewedSha = $null
-        $Plan.ChangedLines = [int] $Info.additions + [int] $Info.deletions
+        $Plan.ChangedLines = $Info.changedLines
     } else {
         $Plan | Add-Member -Force -NotePropertyName DiffBase -NotePropertyValue $base
-        $names = { param($From) @((Invoke-Native 'git' @('-C', $Clone, '-c', 'core.quotepath=off', 'diff', '--name-only', $From, $Info.headRefOid)) -split "`n" | Where-Object { $_ }) }
-        $prFiles = & $names $Info.mergeBase
-        $Plan.Files = @(& $names $base | Where-Object { $prFiles -contains $_ })
+        $Plan.Files = @((Invoke-Native 'git' @('-C', $Clone, '-c', 'core.quotepath=off', 'diff', '--name-only', $base, $Info.headRefOid)) -split "`n" | Where-Object { $_ })
         $Plan.ChangedLines = 0
         if ($Plan.Files.Count) {
             $numstat = Invoke-Native 'git' (@('-C', $Clone, '-c', 'core.quotepath=off', 'diff', '--numstat', $base, $Info.headRefOid, '--') + $Plan.Files)
@@ -1545,8 +1479,7 @@ function Invoke-PrReview($Config, [hashtable] $State, [string] $Url, [switch] $M
 
     if ($PromptOnly) {
         $info | Add-Member -NotePropertyName mergeBase -NotePropertyValue (Get-MergeBase $info)
-        $lines = [int] $info.additions + [int] $info.deletions
-        $plan = [pscustomobject]@{ Mode = 'full'; ChangedLines = $lines; Tier = Select-Tier $Config $lines }
+        $plan = [pscustomobject]@{ Mode = 'full'; ChangedLines = $info.changedLines; Tier = Select-Tier $Config $info.changedLines }
         Write-Output (New-SamPrompt $Config $info '<worktree>' '<run dir>' $plan $null)
         return
     }
@@ -1582,7 +1515,7 @@ function Invoke-PrReview($Config, [hashtable] $State, [string] $Url, [switch] $M
         $run.mode = $plan.Mode
         if ($plan.Mode -eq 'none') {
             # Nothing Sam reviewed changed, so the new head counts as covered.
-            Write-Host "Nothing to review on $Url at ${sha7}: the new commits don't touch the PR's files, and no one is waiting on Sam."
+            Write-Host "Nothing to review on $Url at ${sha7}: the new commits add no changes beyond the base branch's, and no one is waiting on Sam."
             $record.reviewed_sha = $info.headRefOid
             $State[$recordKey] = $record
             $State[$key] = @{ status = 'no_new_changes'; at = (Get-Date).ToString('o') }
@@ -1598,7 +1531,7 @@ function Invoke-PrReview($Config, [hashtable] $State, [string] $Url, [switch] $M
             default { "$($plan.ChangedLines) changed lines, $(Get-TierLabel $plan.Tier)" }
         }
         Write-Host "Sam is on $($info.url) at ${sha7}: $what..."
-        $reaction = Add-StartReaction $Config $info
+        if ($Post -and $Config.postAs -eq 'app' -and $Config.startReaction) { $reaction = Set-StartReaction $Config $info }
         $worktree = New-Worktree $clone $info
 
         $codexBase = if ($plan.Mode -eq 'followup') { Get-DiffBase $plan } else { $info.mergeBase }
@@ -1613,10 +1546,7 @@ function Invoke-PrReview($Config, [hashtable] $State, [string] $Url, [switch] $M
                 $codex = Start-CodexReview $Config $info $codexWorktree $codexBase
             } catch {
                 Write-Warning "Couldn't start Codex, so Sam reviews without it: $($_.Exception.Message)"
-                Stop-CodexReview $codex
-                $codex = $null
-                $codexWorktree = $null
-                Remove-Worktree $clone (Join-Path $WorkDir ('wt\' + ($info.repo -replace '/', '-') + "-$($info.number)-codex"))
+                $run.codex = 'failed'
             }
         }
         # The replies handed to Sam count as handled now, even if the run fails, so one reply can't set
@@ -1690,7 +1620,7 @@ function Invoke-PrReview($Config, [hashtable] $State, [string] $Url, [switch] $M
                 # The review itself worked; keep the draft path so it can be posted with -PostDraft. Record
                 # whatever did post, so the next push gets a follow-up rather than a second full review.
                 $partial = Read-Utf8 $draftPath | ConvertFrom-Json
-                if (Test-AnythingPosted $partial) { Update-PrRecord $State $partial }
+                if (Get-PostedCount $partial) { Update-PrRecord $State $partial }
                 if ($entry) { $entry.status = 'post_failed'; $entry.error = $_.Exception.Message }
                 $run.error = "post: $($_.Exception.Message)"
                 Write-Warning "Draft saved but posting failed: $($_.Exception.Message)"
@@ -1705,7 +1635,7 @@ function Invoke-PrReview($Config, [hashtable] $State, [string] $Url, [switch] $M
     } finally {
         # Codex is still running only if Sam's session failed; it holds files in its worktree.
         Stop-CodexReview $codex
-        Remove-StartReaction $Config $info $reaction
+        if ($reaction) { Set-StartReaction $Config $info $reaction }
         Save-State $State
         if ($codexWorktree) { Remove-Worktree $clone $codexWorktree }
         if ($worktree -and -not $Config.keepWorktree) { Remove-Worktree $clone $worktree }
@@ -1716,6 +1646,7 @@ function Invoke-PrReview($Config, [hashtable] $State, [string] $Url, [switch] $M
 # Reviews what requests your review. PRs Sam has posted on stay watched until they close, but only
 # for replies in Sam's threads: new commits there get a follow-up when your review is requested again.
 function Invoke-Poll($Config) {
+    $script:SamLogin = $null
     $state = Get-State
     $urls = @(Get-RequestedPrUrls $Config)
     Write-Verbose "$($urls.Count) open PR(s) request your review"
@@ -1781,7 +1712,8 @@ function Show-Outcomes {
             $counts[$category][$outcome]++
         }
     }
-    $order = @('blocking', 'needs_decision', 'optional') + @($counts.Keys | Where-Object { @('blocking', 'needs_decision', 'optional') -notcontains $_ })
+    $known = @('blocking', 'needs_decision', 'optional')
+    $order = $known + @($counts.Keys | Where-Object { $known -notcontains $_ })
     $rows = foreach ($category in $order) {
         if (-not $counts.Contains($category)) { continue }
         $c = $counts[$category]
@@ -1809,7 +1741,9 @@ if ($PSCmdlet.ParameterSetName -eq 'ImportKey') {
 function Enter-SamLock {
     if (Test-Path $LockPath) {
         $holder = (Read-Utf8 $LockPath).Trim()
-        if ($holder -and $holder -ne [string] $PID -and (Get-Process -Id ([int] $holder) -ErrorAction SilentlyContinue)) { return $holder }
+        $process = if ($holder -and $holder -ne [string] $PID) { Get-Process -Id ([int] $holder) -ErrorAction SilentlyContinue }
+        # A process that started after the lock was written is a reused PID, not the holder.
+        if ($process -and $process.StartTime -and $process.StartTime -le (Get-Item $LockPath).LastWriteTime) { return $holder }
     }
     Write-Utf8 $LockPath ([string] $PID)
     return $null
@@ -1824,20 +1758,19 @@ if ($PSCmdlet.ParameterSetName -eq 'PostDraft') {
     if ($holder) { throw "Sam is reviewing right now (PID $holder). Post the draft once that run finishes." }
     try {
         $draftPath = (Resolve-Path $PostDraft).Path
-        # What the draft had posted before this run. Only something new moves the PR's record, so
-        # re-posting an old draft can't rewind it.
-        $postedSoFar = { param($d) '{0}|{1}|{2}|{3}' -f (Get-DraftField $d 'posted_url' ''), (Get-DraftField $d 'posted_minor_url' ''),
-            $(if (Get-DraftField $d 'posted_replies' $null) { @($d.posted_replies.PSObject.Properties).Count } else { 0 }),
-            $(if (Get-DraftField $d 'posted_reactions' $null) { @($d.posted_reactions.PSObject.Properties).Count } else { 0 }) }
-        $before = & $postedSoFar (Read-Utf8 $draftPath | ConvertFrom-Json)
+        # What the draft had posted before this run. Only its first post moves the PR's record, so
+        # finishing an older draft after a newer review can't rewind it.
+        $before = Get-PostedCount (Read-Utf8 $draftPath | ConvertFrom-Json)
         try {
             $draft = Publish-Draft $config $draftPath -AllowNewerHead:$Force
         } finally {
             # Follow-ups start from what's posted, including a partial post.
             $draft = Read-Utf8 $draftPath | ConvertFrom-Json
-            if ((Test-AnythingPosted $draft) -and (& $postedSoFar $draft) -ne $before) {
+            if ((Get-PostedCount $draft) -gt $before) {
                 $state = Get-State
-                Update-PrRecord $state $draft
+                # -Force can post a draft from before Sam's last review. That mustn't rewind the record either.
+                $last = (Get-PrRecord $state $draft.url).reviewed_sha
+                if ($before -eq 0 -and -not ($Force -and $last -and $last -notin @($draft.head_sha, $draft.reviewed_sha))) { Update-PrRecord $state $draft }
                 $key = "$($draft.url)@$($draft.head_sha)"
                 if ($state.ContainsKey($key) -and $draft.posted_url) { $state[$key] = @{ status = 'posted'; draft = $draftPath; at = (Get-Date).ToString('o') } }
                 Save-State $state
@@ -1846,9 +1779,7 @@ if ($PSCmdlet.ParameterSetName -eq 'PostDraft') {
         if ($draft.posted_url) { Write-Host "Posted:  $($draft.posted_url)" }
         if ($draft.posted_minor_url) { Write-Host "Minor:   $($draft.posted_minor_url)" }
         foreach ($p in @($draft.posted_replies.PSObject.Properties)) { Write-Host "Replied: $($p.Value)" }
-        if ($draft.PSObject.Properties['posted_reactions'] -and $draft.posted_reactions) {
-            foreach ($p in @($draft.posted_reactions.PSObject.Properties)) { Write-Host "Reacted: $($p.Value) in thread $($p.Name)" }
-        }
+        foreach ($p in @($draft.posted_reactions.PSObject.Properties)) { Write-Host "Reacted: $($p.Value) in thread $($p.Name)" }
     } finally {
         Exit-SamLock
     }

@@ -1,6 +1,6 @@
 ---
 name: pr-comment-editor
-description: Rewrites ranked code-review findings into short PR comments that read like a senior human reviewer wrote them (most are one or two short sentences of 10 to 25 words, no labels or bold, ending in a directive rather than a question, three sentences and 40 words at most, 60 for a must-fix item, a decision or a design change) and splits out Optional items and nitpicks as console-only lines. Also shortens drafted replies. Never posts or edits anything on GitHub. USE WHEN review findings need to be turned into PR comments, when drafted PR comments, replies or a review summary are too long or read like AI, or when the jg-pr-comment-editor skill delegates its rewrite step.
+description: Rewrites ranked code-review findings into short PR comments that read like a senior human reviewer wrote them (one or two short sentences, no labels or bold, ending in a directive rather than a question) and splits out Optional items and nitpicks as console-only lines. Also shortens drafted replies. Never posts or edits anything on GitHub. USE WHEN review findings need to be turned into PR comments, when drafted PR comments, replies or a review summary are too long or read like AI, or when the jg-pr-comment-editor skill delegates its rewrite step.
 tools: Read, Grep, Glob
 model: sonnet
 ---

@@ -1,6 +1,6 @@
 ---
 name: jg-pr-comment-editor
-description: Turn code-review findings into PR comments that read like a senior human reviewer wrote them (short, plain, unlabelled) and, only when explicitly asked, post them to GitHub as one review. Keeps each finding's severity grade, or ranks it on JG's ladder (Breaking change → May be important), posts only those ranks, carries severity in the wording and the review body instead of labels, and prints Optional items and nitpicks to the console instead of the PR. Comments end in a directive ("Please …"), and decisions state a lean, with questions kept for what the reviewer can't know. Most comments are one or two short sentences of 10 to 25 words, and the ceiling is three sentences and 40 words (60 for a must-fix item, a decision or a design change). Use after a code review produces findings, before anything is posted to a pull request, or when the user asks to "post the review", "leave the comments on the PR", "make these comments shorter", "tighten the PR feedback", or says the review "reads like AI".
+description: Turn code-review findings into PR comments that read like a senior human reviewer wrote them (short, plain, unlabelled) and, only when explicitly asked, post them to GitHub as one review. Keeps each finding's severity grade, or ranks it on JG's ladder (Breaking change → May be important), posts only those ranks, carries severity in the wording and the review body instead of labels, and prints Optional items and nitpicks to the console instead of the PR. Comments end in a directive ("Please …"), and decisions state a lean, with questions kept for what the reviewer can't know. Use after a code review produces findings, before anything is posted to a pull request, or when the user asks to "post the review", "leave the comments on the PR", "make these comments shorter", "tighten the PR feedback", or says the review "reads like AI".
 ---
 
 # JG PR Comment Editor
@@ -18,12 +18,8 @@ were judged too verbose. The reviewer's typical comment is one sentence of 13 wo
 AI comments ran about 150 words each, every one opened with a bold rank, and half narrated how the
 finding was found. The two AI passes drew no reply, reaction or fix.
 
-Later use on real reviews refined three things. First, too many comments ended in "Can we …?" when
-the reviewer already had a view, so comments now end in a directive and a decision states its lean.
-Second, the must-fix and decision comments JG approved ran 45 to 55 words, because they carry a
-path, a symptom and a fix, so those ranks get the 60-word ceiling. Third, triage gained checks for
-the cases where reviewers' findings mislead: one defect reported many ways, reviewers contradicting
-each other, test gaps graded as blockers, and convention findings with no rule behind them.
+Later use on real reviews added the directive ending, the 60-word ceiling for must-fix and decision
+comments, and the triage checks for findings that mislead.
 
 ---
 
@@ -58,8 +54,8 @@ These win any conflict with the rest of this document.
 6. **Say what to do, as a directive.** Give the replacement or an instruction ("Please …"). Leave the
    fix implied only when naming the problem names the fix ("Unused.", "Redundant null check."). Ask
    a question only when the answer depends on something you can't know: an unverified fact (Needs
-   research), or the author's intent on a decision where you have no lean at all. Before showing or
-   posting, check every comment that ends in "?" against this rule. Never post a bare "why?".
+   research), or the author's intent on a decision where you have no lean at all. Never post a bare
+   "why?".
 7. **No AI tells in inline comments** (Area 3).
 8. **One finding per comment.** Write a repeated finding once, in full, ending "Same for the others."
    or naming the one other site. Anchor another site only when it needs a different fix. One defect
@@ -152,9 +148,8 @@ Default form, one or two sentences:
 <problem, naming the code>. <fix, as a directive>.
 ```
 
-- **Open with the substance.** The most common opener is a plain observation ("`Save` isn't
-  awaited, so failures vanish."). An instruction or the replacement itself also works. Only a Needs
-  research comment opens with a question. No greeting, no preamble, no label.
+- **Open with the substance** (hard rule 5), most often a plain observation: "`Save` isn't
+  awaited, so failures vanish." No greeting or preamble.
 - **One reason clause, only if the author can't infer it:** "since…", "so…", "because…". A named
   principle in one to three words ("magic number", "stringly typed", "Chesterton's fence") stands in
   for an argument; don't explain it.
@@ -169,10 +164,8 @@ Default form, one or two sentences:
   Never test runs, traces, mutation results or confidence statements.
 - **Give the replacement when one exists:** a name in backticks, or one line of code. Use a code
   block only when the fix *is* the code, five lines or fewer. No `suggestion` blocks.
-- **End in a directive by default.** When you have a view, say it: "Please clear it only in the
-  entry reset." That holds for judgement calls too: name both options, state your lean, and end in
-  "Please …". Ask only when you can't know the answer (hard rule 6), and then put the scenario or the
-  alternative in the question, so one reply settles it. Never ask about something you could check.
+- **End in a directive** (hard rule 6): "Please clear it only in the entry reset." When you must
+  ask, put the scenario or the alternative in the question, so one reply settles it.
 - **Several valid fixes:** name the one you recommend as the directive. The alternatives go to the
   console report, not the comment.
 - **A conflict over a pinned value** (a version, digest or count that both the PR and the base branch
@@ -190,9 +183,9 @@ Default form, one or two sentences:
 - **For a behaviour change,** one before-and-after clause is fine ("The old loop stopped at the
   first error."). That isn't history.
 - **Use the code's and the PR's own terms.** Don't coin new ones.
-- **A must-fix item, a decision or a design change may run long** (hard rule 4), but only to give the
-  path, the symptom and the fix, the options and your lean, or the shape. Order: claim, reason, fix.
-  Keep each sentence under about 15 words.
+- **A comment allowed 60 words** (hard rule 4) uses them only for the path, the symptom and the fix,
+  the options and your lean, or the shape. Order: claim, reason, fix. Keep each sentence under about
+  15 words.
 
 Corrections and replies are in Area 5.
 

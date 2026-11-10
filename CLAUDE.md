@@ -7,8 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A personal library of **Claude Code assets** — skills, agents and personas
 encoding JG's (Jason Gersztyn) working standards. It contains no application
 source, no build system, no test suite, no CI, and no package manifest. Every file
-is Markdown except the persona runners under `personas/` (PowerShell, JSON config
-and an avatar image); see "Personas" below.
+is Markdown except Sam's runner files under `personas/sam/` (PowerShell, JSON, a
+`.gitignore` and avatar images; see "Personas" below) and one HTML example under
+`training-materials/code-review-comments/`.
 
 "Correct" here means *the documented standard is unambiguous and self-consistent*,
 not *the code compiles*. Review changes as an editor would, not as a compiler.
@@ -48,7 +49,8 @@ Get-ChildItem personas\sam\*.json | ForEach-Object { Get-Content -Raw $_ | Conve
 ```
 
 Then `.\sam.ps1 -Pr <PR url> -PromptOnly` (from `personas\sam\`, with a
-`config.json`) prints the prompt Sam would get without cloning or running anything.
+`config.json`) reads the PR from GitHub and prints the full-review prompt Sam would
+get. It clones and posts nothing.
 
 ## Architecture: the skill + companion-reference split
 
@@ -102,47 +104,27 @@ The skills share most of this skeleton. Match it when adding another:
 ## Personas
 
 A persona is an assistant that runs on its own, outside an interactive session,
-with a runner script that drives `claude -p`. There is one so far:
+with a runner script that drives `claude -p`. There is one so far: Sam, JG's PR
+review persona, in `personas/sam/`. Its `README.md` covers each file, setup, the
+config (`reviewSkill` included) and use, and its `TODO.md` the open decisions.
+Rules for editing it:
 
-- **`personas/sam/`** is Sam, JG's PR review persona. It finds PRs where you're
-  requested as a reviewer, reviews each in a throwaway worktree, and saves a draft
-  or posts it as its own GitHub App. On later pushes it does follow-ups (only
-  what changed since its last review) and answers replies in its own threads.
-  `README.md` covers setup and use, and `TODO.md` the open decisions. `sam.ps1` is
-  the runner, and `sam-schedule.ps1` registers it as a Windows scheduled task
-  (named per folder, so copies on one PC don't replace each other's task).
-  `sam-system.md`, `comment-standards.md`, `sam-pr-review.md` (full review),
-  `sam-pr-followup.md` (follow-ups and replies) and `sam-codex-followup.md` (the
-  Codex second pass) are the prompts. `review-schema.json` is Sam's output
-  contract.
 - **Sam here is the generic copy of JG's working Sam,** which lives outside this
   repo and develops first. New features are brought across from it in batches,
   and every batch gets the same generic treatment (see "Personas stay generic"
   below). Never edit the working copy from this repo.
-- **`training-materials/sam/parked-pr-comments-skill-2026-11-04/`** is a parked
-  variant of Sam's prompt files that loads `jg-pr-comment-editor` in-session
-  instead of carrying its own comment standards. It is meant to be copied over the
-  live files, so it mirrors every live prompt, `README.md` and `TODO.md` except
-  for the comment-writing lines. When you
-  edit a live Sam file that has a parked copy, make the same edit there.
-
-How Sam ties into the rest of the repo:
-
 - **`comment-standards.md` adapts `jg-pr-comment-editor`.** It's a self-contained
-  copy with deliberate differences: category tags, a severity scale, posted
-  Optional findings, a separate minor-notes list, and warmer reply rules. When the skill's rules change, review Sam's file
-  and the parked variant too. Neither updates automatically.
-- **The review step is configured, not hard-coded.** `reviewSkill` in Sam's
-  `config.json` has three parts:
-  - `tiers` picks the review skill by the PR's changed lines (`maxChangedLines`,
-    `name`, `reviewers`, `reviewerModel`).
-  - `instructions` holds extra headless lines for the skill.
-  - `scaffold` is the run-directory layout the skill expects.
-
-  An empty `name`, or a skill that isn't installed, means Sam's built-in
-  multi-lens review. `sam.ps1` builds the step and fills `{{review_step}}` in both
-  `sam-pr-review.md` and `sam-pr-followup.md`. Keep the prompts free of any one
-  plugin's skill names; they belong in config.
+  copy with five deliberate differences: category tags, a severity scale that
+  decides the category, posted Optional findings, a separate minor-notes list, and
+  warmer replies that thank people and react to plain fixes. When the skill's rules
+  change, review Sam's file and the parked variant too. Neither updates
+  automatically.
+- **The parked variant** is the `comment-standards.md` in
+  `training-materials/sam/parked-pr-comments-skill-2026-11-04/`. It loads
+  `jg-pr-comment-editor` in-session instead of carrying its own standards. Copy it
+  over the live file to switch.
+- **Keep Sam's prompts free of any one plugin's skill names.** The review skill is
+  picked in `config.json` (`reviewSkill`), and `sam.ps1` fills `{{review_step}}`.
 
 ## Load-bearing conventions
 
@@ -172,11 +154,11 @@ How Sam ties into the rest of the repo:
   `config.example.json`, with placeholders, is committed. No organization, repo,
   PR number, App ID, app name or colleague goes into a persona's committed files.
   Example URLs use `<owner>/<repo>`. Private keys never enter the folder: Sam
-  won't start a review while a `.pem` is in it.
-- **Sam's schema fields are a contract.** `notes_for_jg` (private notes),
-  `thread_replies` and `extra_minor_notes`, like every field `sam.ps1` reads, are
-  named in `review-schema.json`, the prompts and `sam.ps1`. Rename one in all of
-  them or in none.
+  won't start a review while a `.pem` sits in it outside `.work/`.
+- **Sam's schema fields are a contract.** For every field `sam.ps1` reads, such as
+  `notes_for_jg` (private notes), `thread_replies` and `extra_minor_notes`, rename
+  it in `review-schema.json`, `sam.ps1` and any prompt or doc that names it, or
+  nowhere.
 
 ## Deployment
 

@@ -97,11 +97,11 @@ Sam never resolves a thread, never answers in someone else's thread, and never r
 
 ### Where the skill's posting and console report go
 
-Sam never posts and never prints the skill's console report. The script posts, so Sam returns the structured review instead:
+Apply the skill's steps 2 to 5 (triage, rewrite, merge repeats and anchor, check) to your verified findings. Skip its steps 1, 6 and 7: the task prompt already gives the open threads, the script posts, and Sam returns the structured review instead of the console report:
 
 - The skill's review body is `summary`, with no "What I ran" block or counts.
 - Its posted comments are `comments`.
 - Its console-only Optional and Nit lines become `optional` comments and `minor_notes` (the overrides above).
-- Its candidate replies to open threads, standing must-fix findings from other reviewers' threads, grades it thinks are wrong, and anything left unposted go in `notes_for_jg`.
+- Its candidate replies to open threads (except in Sam's own threads on a follow-up, which get `thread_replies` by Replies above), standing must-fix findings from other reviewers' threads, grades it thinks are wrong, and anything left unposted go in `notes_for_jg`.
 - Its step 6 asks the user before posting when a lower-graded finding might block. Nobody is around to answer, so rank that finding by the severity scale above and say why in `notes_for_jg`.
 - Anchoring (its step 4): `gh api` isn't available in Sam's session, so check lines against `git diff <merge base> HEAD`.
