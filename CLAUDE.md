@@ -129,8 +129,8 @@ with a runner script that drives `claude -p`. There is one so far:
 How Sam ties into the rest of the repo:
 
 - **`comment-standards.md` adapts `jg-pr-comment-editor`.** It's a self-contained
-  copy with deliberate differences: category tags, posted Optional findings, and a
-  separate minor-notes list. When the skill's rules change, review Sam's file
+  copy with deliberate differences: category tags, a severity scale, posted
+  Optional findings, a separate minor-notes list, and warmer reply rules. When the skill's rules change, review Sam's file
   and the parked variant too. Neither updates automatically.
 - **The review step is configured, not hard-coded.** `reviewSkill` in Sam's
   `config.json` has three parts:
@@ -172,7 +172,7 @@ How Sam ties into the rest of the repo:
   `config.example.json`, with placeholders, is committed. No organization, repo,
   PR number, App ID, app name or colleague goes into a persona's committed files.
   Example URLs use `<owner>/<repo>`. Private keys never enter the folder: Sam
-  refuses to run while a `.pem` is in it.
+  won't start a review while a `.pem` is in it.
 - **Sam's schema fields are a contract.** `notes_for_jg` (private notes),
   `thread_replies` and `extra_minor_notes`, like every field `sam.ps1` reads, are
   named in `review-schema.json`, the prompts and `sam.ps1`. Rename one in all of

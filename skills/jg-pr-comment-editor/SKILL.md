@@ -292,7 +292,9 @@ The body must agree with the event.
    - Fold one defect reported through several symptoms into one finding on the root cause (hard
      rule 8).
    - A convention finding (house style, "best practice") needs a written rule in the repo or a
-     precedent in the code. Cite whichever exists. With neither, move it to the console list.
+     precedent in the code. Cite whichever exists. With neither, it isn't a postable finding at
+     all, whatever its grade: move it to the console list and say why in the step 7 report. This
+     is a drop, not one of Area 1's re-grades.
    - Keep each finding's grade, apply only the re-grades Area 1 allows, and rank the ungraded ones.
    - Move Optional and Nit items to the console list.
 3. **Rewrite.** Put each ranked finding into the Area 2 shape. You can delegate this step to the
@@ -321,6 +323,7 @@ The body must agree with the event.
    - standing must-fix findings raised only in other reviewers' threads;
    - any grade you think is wrong, any re-grade you made (Area 1) and why, and any graded finding
      that admits it wasn't verified;
+   - any convention finding moved to the console list for want of a rule (step 2);
    - the alternatives to any fix you recommended as a directive;
    - anything left unposted, and why.
 

@@ -22,8 +22,9 @@ A generic reconstruction (see the [reading notes](README.md#reading-notes)).
   Needs to address here, and the notes say why.
 - A test comment names the one number that makes the test useful ("a literal 6"), not just "use a
   literal".
-- A conflict with the ticket is a Needs a decision with both answers in one question, not a bug.
-- Measured but unlikely risks are hedged May be important lines that end in a question.
+- A conflict with the ticket is a Needs a decision, not a bug: both answers in one sentence, a lean, and
+  "Please …".
+- Measured but unlikely risks are hedged May be important lines that end in a "fine to leave" exit.
 - The appendix gives each kept test the one bug it uniquely catches, which is what justifies every cut.
 
 ## PR comments
@@ -61,11 +62,11 @@ A generic reconstruction (see the [reading notes](README.md#reading-notes)).
 - tests/Catalog/ProductGridPanelTests.cs:414 · Needs a decision · 42 words
   This passes with the guard deleted, so it only pins where the guard sits relative to the rebuild. Either cut it and its test hook, or keep it and say so in its comment. I lean towards cutting both. Please remove them.
 
-- src/Catalog/ProductGrid.razor:10 · May be important · 32 words
-  Probably fine, but on a page of only banner tiles, unchecking widens nothing and shrinks a lone banner to the fixed height. Should a grid with no image tiles count as filled?
+- src/Catalog/ProductGrid.razor:10 · May be important · 29 words
+  Probably fine, but on a page of only banner tiles, unchecking widens nothing and shrinks a lone banner to the fixed height. Fine to leave for a follow-up ticket.
 
-- src/Catalog/ProductGrid.razor:98 · May be important · 38 words
-  Probably fine, but with no saved column count, unfilled mode picks columns from the tile count whatever the window size. In a small square window two tiles shrink by a quarter. Taking the smaller count would avoid that.
+- src/Catalog/ProductGrid.razor:98 · May be important · 39 words
+  Probably fine, but with no saved column count, unfilled mode picks columns from the tile count, so two tiles shrink by a quarter in a small square window. Taking the smaller count fixes it, but it's fine to leave.
 
 - src/Catalog/ProductGrid.razor.css:122 · May be important · 38 words
   Scrolling works only because the `div` prefix outranks an equal-specificity rule in the page shell, so a shell change would quietly break it. An inner element could scroll instead, as `ReviewGrid` does. Fine to leave for a follow-up.

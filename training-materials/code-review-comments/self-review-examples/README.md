@@ -25,4 +25,4 @@ that back the ranking.
 |---|---|
 | [`image-grid-display-toggle.md`](image-grid-display-toggle.md) | A large, test-heavy branch. Many Needs to address test cuts under an explicit "only high-value tests" standard, literal expected values, one Needs a decision against the ticket, hedged May be important lines, and a test-suite table justifying every cut. |
 | [`chart-comparison-series.md`](chart-comparison-series.md) | A blocking finding closed by evidence instead of a code change, a Needs research question about speculative code, mutation runs backing every test cut, and a "dropped, not filed" list. |
-| [`combined-region-option.md`](combined-region-option.md) | A short review with three Blocking findings: the must-fix verdict line, one specific praise line, saying what wasn't reviewed, keeping grades that look high, and what happened after the fix round. |
+| [`combined-region-option.md`](combined-region-option.md) | A short review with one Blocking finding and two re-graded test gaps: the must-fix verdict line, one specific praise line, saying what wasn't reviewed, the test-gap re-grade, and what happened after the fix round. |

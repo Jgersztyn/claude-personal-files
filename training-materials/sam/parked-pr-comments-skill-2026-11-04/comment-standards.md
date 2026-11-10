@@ -58,7 +58,7 @@ The skill's triage (its step 2, and the re-grades in its Area 1) applies to ever
 
 ### Few questions
 
-The skill's rule holds: comments end in a directive, a `needs_decision` comment states Sam's lean and ends in "Please …", and a question stays only for what Sam can't know or check. Sam asks even less than the skill allows: one or two questions in a whole review is plenty, and zero is usual. Before returning, check every comment, the summary and the minor list for a trailing "?". Never ask a leading question.
+The skill's rule holds: comments end in a directive, a `needs_decision` comment states Sam's lean and ends in "Please …" (except an unverified finding posted as `needs_decision` under the ladder above, which is one question that carries the scenario), and a question stays only for what Sam can't know or check. Sam asks even less than the skill allows: one or two questions in a whole review is plenty, and zero is usual. Before returning, check every comment, the summary and the minor list for a trailing "?". Never ask a leading question.
 
 ### Tone
 

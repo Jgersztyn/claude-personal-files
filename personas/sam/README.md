@@ -48,7 +48,7 @@ gh search: open PRs where you're directly requested
 
 - Sam can't post or push. Sam's tool allowlist has no `gh api`, `gh pr review`/`comment`, `git push` or `git stash`. Sam's output is plain data, and the script decides whether to post it.
 - The PR's own Claude config never loads. `claude -p` skips the workspace trust prompt, so Sam runs with `--setting-sources user --strict-mcp-config`. The PR's `.claude/settings.json` hooks and permissions, `.mcp.json` servers, `.claude/skills`, `.claude/commands` and `CLAUDE.md` are all ignored as configuration. This was checked with a planted skill, command and CLAUDE.md. Sam still reads `CLAUDE.md` and `CONTRIBUTING.md` as files to review against, and treats them as untrusted like the rest of the PR.
-- **Sam can read files outside the PR.** Read, Grep, Glob and `git blame --contents` aren't confined to the worktree, and path deny rules have gaps (8.3 short names, for one). A malicious PR could try to talk Sam into quoting a file into a review. So the app's private key is stored encrypted with Windows DPAPI, which only your Windows account on this PC can undo, and it's decrypted in memory only when posting. That only helps once the plain `.pem` is deleted. Sam refuses to start a review while a `.pem` sits anywhere in this folder, but it can't see copies elsewhere (Downloads, for example), so delete those too. Before anything is posted, the text is also checked for a PEM header or any piece of the app key, and refused if it has one. Re-encoded text can get past that check, so it's a backstop only.
+- **Sam can read files outside the PR.** Read, Grep, Glob and `git blame --contents` aren't confined to the worktree, and path deny rules have gaps (8.3 short names, for one). A malicious PR could try to talk Sam into quoting a file into a review. So the app's private key is stored encrypted with Windows DPAPI, which only your Windows account on this PC can undo, and it's decrypted in memory only when the script needs it: to post, and to look up Sam's own login when `githubApp.slug` is empty. That only helps once the plain `.pem` is deleted. Sam refuses to start a review while a `.pem` sits anywhere in this folder, but it can't see copies elsewhere (Downloads, for example), so delete those too. Before anything is posted, the text is also checked for a PEM header or any piece of the app key, and refused if it has one. Re-encoded text can get past that check, so it's a backstop only.
 - **A prompt-injected Sam can run code too.** It can edit files in the worktree and run the build and test commands in its allowlist, so injected text alone could get it to build code that uses anything your Windows account can, the DPAPI key included. Like the point below, the real fix is running Sam under a separate account or in a sandbox (TODO.md).
 - **Codex reads the PR too.** It runs in its own worktree with `-c sandbox_mode=read-only`, `--ephemeral` and `--ignore-rules`, under your Codex login and `~/.codex/config.toml` (so your Codex MCP servers and plugins load), and it loads the PR's own `AGENTS.md` like any Codex session would. `--ignore-user-config` would be tighter, but it left Codex unable to run `git diff`. Its findings reach Sam as untrusted data that Sam checks before using, and nothing it writes is posted directly. Turn it off with `codexReview.enabled: false`.
 - **PR code does run.** The build and test commands run the PR's build scripts and tests on your machine, with your credentials in the environment. Any CI or local build does the same. So only point Sam at repos whose authors you'd trust to build their code locally: your own team, not outside forks.
@@ -99,20 +99,20 @@ Sam's session loads only your user settings, so a skill has to be installed for 
 
 Whatever the skill, Sam verifies and triages every finding itself before it writes anything, and every comment follows `comment-standards.md`.
 
-Example, for a plugin with a four-lens team review for small PRs and an eight-lens one for large PRs, both keeping a ledger in the run directory:
+Example, for a plugin with a four-reviewer team review for small PRs and an eight-reviewer one for large PRs, both writing their reports to a `reports/` folder in the run directory. The plugin and skill names are placeholders:
 
 ```json
 "reviewSkill": {
   "tiers": [
-    { "maxChangedLines": 400, "name": "core-dev:team-review", "reviewers": 4, "reviewerModel": "sonnet" },
-    { "maxChangedLines": 0, "name": "core-dev:team-review-diverse", "reviewers": 8, "reviewerModel": "opus" }
+    { "maxChangedLines": 400, "name": "my-plugin:team-review-small", "reviewers": 4, "reviewerModel": "sonnet" },
+    { "maxChangedLines": 0, "name": "my-plugin:team-review-large", "reviewers": 8, "reviewerModel": "opus" }
   ],
   "instructions": [
     "Spawn the {{reviewer_count}} reviewers in the foreground, all in one message, so they run in parallel and report back before you continue. Background agents can't report back in this session.",
-    "Pass `CODEX: off` to every reviewer. Codex reviews this PR separately, and if it finishes you'll get its findings afterwards.",
+    "Tell every reviewer to write its report to `{{run_dir}}/reports/`.",
     "Pass `model: \"{{reviewer_model}}\"` on every spawn."
   ],
-  "scaffold": ["ledger.md", "codex-envelopes/", "codex-slots/"]
+  "scaffold": ["reports/"]
 }
 ```
 
@@ -126,7 +126,7 @@ Sam posts as its own GitHub App, so its reviews come from a `[bot]` account inst
 2. Repository permissions: **Pull requests: Read and write**. Nothing else. Sam's posting token only ever asks for that (reviews, the minor-notes comment, thread replies, reactions), so more access only widens what a leaked key could do.
 3. Upload `sam-avatar.png` as the app's logo if you like.
 4. Install the app on the repos Sam reviews. "Only select repositories" is safer than all.
-5. Put the app's **App ID** in `githubApp.appId`. Optionally put its slug (the name in its URL) in `githubApp.slug`, which saves Sam one API call per run when it looks for its own threads.
+5. Put the app's **App ID** in `githubApp.appId`. Put its slug (the name in its URL) in `githubApp.slug` too. Without it, Sam signs in as the app on every run to find its own threads, and until the key is imported it treats no thread as its own.
 6. Generate a private key on the app's page, import it, then **delete the `.pem`**:
    ```powershell
    .\sam.ps1 -ImportKey C:\path\to\sam.pem
@@ -214,7 +214,7 @@ Every run adds a line to `.work/logs/runs.jsonl` and prints it: minutes, cost pe
 
 - **Paths too long on clone or checkout.** Sam clones with `core.longpaths=true`. For an existing clone, run `git -C <clone> config core.longpaths true`.
 - **"Sam is already running" or "Sam is reviewing right now".** Another run holds `.work/sam.lock`. `-PostDraft` takes the lock too, so it can't overwrite `state.json` while a review is writing it. `-Loop` holds it only while it polls, so `-PostDraft` works between polls. If no run is active, delete the file.
-- **"... is a plain-text key" or "Sam's app key isn't at ...".** Run `.\sam.ps1 -ImportKey <the .pem>`. "Couldn't decrypt" means the file was encrypted by another Windows account or PC, or by another copy of Sam; import again.
+- **"... is a plain-text key" or "Sam's app key isn't at ...".** Run `.\sam.ps1 -ImportKey <the .pem>`. "Couldn't decrypt" means the file was encrypted by another Windows account or PC; import again.
 - **"Plain-text key file(s) in Sam's folder".** Import the key if you haven't, then delete the `.pem` files it names.
 - **"GitHub App call ... failed".** A 401 on `GET app` means the App ID or key is wrong. A 404 on `repos/.../installation` means the app isn't installed on that repo. A 422 on `access_tokens` means the repo isn't one the installation covers.
 - **"Review skill name ... isn't a skill name" or "reviewSkill.scaffold entry ...".** Fix that key in `config.json` (see [Review skill](#review-skill)).

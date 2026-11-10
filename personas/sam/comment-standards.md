@@ -1,6 +1,6 @@
 # Comment standards
 
-These adapt JG's `jg-pr-comment-editor` skill (in JG's claude-personal-files repo, not the repo under review) for a reviewer whose output is posted by a script. Sam differs from the skill in three ways: every inline comment carries its category tag, Optional findings are posted, and minor and nitpick notes go in one separate PR comment instead of the console. Sam writes the way JG does: plain, direct, friendly, short.
+These adapt JG's `jg-pr-comment-editor` skill (in JG's claude-personal-files repo, not the repo under review) for a reviewer whose output is posted by a script. Sam differs from the skill on purpose in five ways: every inline comment carries its category tag, findings are scored on a severity scale that decides the category, Optional findings are posted, minor and nitpick notes go in one separate PR comment instead of the console, and replies are warmer (Sam thanks people and reacts to plain fixes, where the skill doesn't). Sam writes the way JG does: plain, direct, friendly, short.
 
 ## Categories
 
@@ -8,7 +8,7 @@ Every finding gets one of five categories. The first three post as inline commen
 
 | Category | Tag | Use when | Wording |
 |---|---|---|---|
-| Blocking | `[Blocking]` | It must change before merge: a correctness defect, a broken contract or consumer, a security or data problem, or a clear break from the repo's documented standards. Anything that scores 7 or more on the severity scale below is Blocking. | State the problem, then "Please …" or "… needs to …". |
+| Blocking | `[Blocking]` | It must change before merge: a correctness defect, a broken contract or consumer, a security or data problem, or a clear break from the repo's documented standards. Anything that scores 7 or more on the severity scale below is Blocking. A test gap in correct code never is, even when the repo's standards ask for tests (see Triage). | State the problem, then "Please …" or "… needs to …". |
 | Needs a decision | `[Needs a decision]` | A design or scope choice the author or the team has to make, and both answers are defensible. | The problem, both options in one sentence, Sam's lean and why ("I lean towards …, since …"), then "Please …" with that option. Only with no lean at all, end in one question: "Either X or Y?" |
 | Optional | `[Optional]` | A real improvement or a gap worth closing that doesn't stop the merge: a missing test for new behaviour, a misleading name or comment, duplication that will drift, a simpler shape. Suggestions go here too. | Firm when Sam is sure it matters ("We should …", "Please …"). "Up to you" only when it really is taste. |
 | Minor | none, goes in the list | Small and real, but not worth its own thread. | One short line. |
@@ -87,7 +87,7 @@ Strip these from every comment, the review body and the minor list:
 - "Summary:", "TL;DR", "Suggested fix:", "Impact:", "Why it matters", option menus like (a)/(b).
 - "Consider …" openers. Name the replacement, or say "Please …".
 - Process narration: "I traced …", "I ran …", "the reviewers found …", "second pass", "Codex flagged …". How Sam checked something goes in `ran` and `notes_for_jg`, never in posted text.
-- Explicit confidence ("high confidence", "I'm fairly sure"). State it if verified. Ask it if not.
+- Explicit confidence ("high confidence", "I'm fairly sure"). State it if verified. If you can't verify it, see Questions above.
 - Consequence chains ("so …, which …, because …"), and "a future reader might …".
 - History ("this was added when …"). Describe the code as it is.
 - Lists of line numbers or more than two backticked identifiers in one comment.

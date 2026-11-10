@@ -22,7 +22,8 @@ A generic reconstruction (see the [reading notes](README.md#reading-notes)).
 - With must-fix findings, the verdict line names each one as a short noun phrase.
 - One specific praise line fits in the body when the findings name a real strength.
 - The body says what wasn't reviewed (the base PR).
-- Grades that look high are kept and the doubt goes in the notes, not into a quiet downgrade.
+- Two test gaps in correct code arrive graded Blocking and are re-graded to Needs to address, with
+  the re-grade recorded in the notes rather than made quietly.
 - "After the fix round" records which fixes were proven by a test that fails without them.
 
 ## PR comments
@@ -30,16 +31,16 @@ A generic reconstruction (see the [reading notes](README.md#reading-notes)).
 - src/Sales/RegionResults.cs:71 · Blocking · 38 words
   `IsForbidden` only counts a sibling that loaded or came back empty, so when North is forbidden and South fails, the panel goes blank and never refreshes. It needs to count any sibling that isn't forbidden, with a test.
 
-- src/Sales/SalesWidget.razor:261 · Blocking · 36 words
-  Nothing tests picking a region after a load throws, and this guard is what stops the error turning into "No data". Please add a component test before merge that also covers the reset in the catch.
+- src/Sales/SalesWidget.razor:261 · Needs to address · 34 words
+  Nothing tests picking a region after a load throws, and this guard is what stops the error turning into "No data". Please add a component test that also covers the reset in the catch.
 
-- src/Sales/SalesWidget.razor:660 · Blocking · 23 words
-  Nothing tests that the comparison toggles turn off when a second region or Combined is picked. Please add a component test before merge.
+- src/Sales/SalesWidget.razor:660 · Needs to address · 21 words
+  Nothing tests that the comparison toggles turn off when a second region or Combined is picked. Please add a component test.
 
 ## Review body
 
 ```
-Needs fixing before merge: the blank panel from `IsForbidden`, the untested comparison disable and the untested region pick after a failure.
+Needs fixing before merge: the blank panel from `IsForbidden`.
 Good call keeping Combined out of `Region.All`, so API routing doesn't change.
 Didn't review the base PR this branch is stacked on.
 ```
@@ -61,9 +62,9 @@ Didn't review the base PR this branch is stacked on.
   comment merges a standards Blocking finding with a test-coverage Optional one.
 - **Dropped.** A deselect-Combined test that two reviewers asked for, and merging two toggle handlers,
   which would edit the base PR's helper.
-- **Grades look high but are kept.** The two missing-test comments have no wrong behaviour on the
-  tree, which the ladder would read as Needs to address. They arrived graded Blocking, so they keep
-  that grade and sit on the must-fix line.
+- **Re-graded.** The two missing-test comments arrived graded Blocking, but the code they cover has
+  no wrong behaviour on the tree. A test gap in correct code becomes Needs to address (the skill's
+  Area 1), so they're worded firmly and left off the must-fix line.
 - **Unverified as reviewed.** The `IsForbidden` and region-pick findings were traced by reading, with
   nothing run. The fix round then mutation-checked both.
 - **Could matter for sign-off.** The Combined total against North plus South during loading. It's
@@ -75,7 +76,7 @@ Didn't review the base PR this branch is stacked on.
 One fix iteration followed. An independent verifier then checked everything below before the local
 commit.
 
-- **All three Blocking findings fixed, each with a test that a mutation run showed fails without the
+- **All three posted findings fixed, each with a test that a mutation run showed fails without the
   fix:**
   - `IsForbidden` now counts any sibling that isn't forbidden. Test:
     `Render_NorthForbiddenAndSouthFails_ShowsTheError`.

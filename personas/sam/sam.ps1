@@ -233,7 +233,8 @@ function Get-CommentAuthor($Comment) {
 # only the comment ids in Sam's comment log count, never threads you wrote by hand.
 function Test-SamThread($Thread) {
     $first = @($Thread.comments.nodes)[0]
-    if (-not $first -or (Get-CommentAuthor $first) -ne (Get-SamLogin)) { return $false }
+    $login = Get-SamLogin
+    if (-not $first -or -not $login -or (Get-CommentAuthor $first) -ne $login) { return $false }
     if ($script:SamPostsAsMe) { return (Get-SamCommentIds).Contains([long] $first.databaseId) }
     return $true
 }
@@ -277,14 +278,21 @@ function Format-Threads($Threads) {
 }
 
 # Sam's login as GraphQL shows it: the app's slug, or yours with postAs 'me'. Looked up once per run.
+# If it can't be worked out (no slug and no imported key yet, say), it's '' and no thread counts as
+# Sam's, so a draft-only run still sees every open thread.
 function Get-SamLogin {
-    if (-not $script:SamLogin) {
+    if ($null -eq $script:SamLogin) {
         $config = Get-Config
         $slug = if ($config.githubApp.PSObject.Properties['slug']) { [string] $config.githubApp.slug } else { '' }
         $script:SamPostsAsMe = $config.postAs -eq 'me'
-        $script:SamLogin = if ($config.postAs -eq 'me') { (Invoke-Native 'gh' @('api', 'user', '--jq', '.login')).Trim() }
-            elseif ($slug) { $slug }
-            else { (Invoke-AppApi 'GET' 'app' ('Bearer ' + (New-AppJwt ([string] $config.githubApp.appId) (Read-AppKey $config)))).slug }
+        try {
+            $script:SamLogin = if ($config.postAs -eq 'me') { (Invoke-Native 'gh' @('api', 'user', '--jq', '.login')).Trim() }
+                elseif ($slug) { $slug }
+                else { (Invoke-AppApi 'GET' 'app' ('Bearer ' + (New-AppJwt ([string] $config.githubApp.appId) (Read-AppKey $config)))).slug }
+        } catch {
+            Write-Warning "Couldn't work out Sam's login, so no thread counts as Sam's this run: $($_.Exception.Message) Set githubApp.slug in config.json to skip this lookup."
+            $script:SamLogin = ''
+        }
     }
     return $script:SamLogin
 }
@@ -339,7 +347,7 @@ function Get-ReviewTiers($Config) {
     $raw = @($Config.reviewSkill.tiers | Where-Object { $_ })
     if ($raw.Count -eq 0 -and $Config.PSObject.Properties['tiers']) { $raw = @($Config.tiers | Where-Object { $_ }) }
     if ($raw.Count -eq 0) { $raw = @([pscustomobject]@{ maxChangedLines = 0 }) }
-    return @(foreach ($t in $raw) {
+    $tiers = @(foreach ($t in $raw) {
         $get = { param($Name, $Default) if ($t.PSObject.Properties[$Name] -and $null -ne $t.$Name -and [string] $t.$Name -ne '') { $t.$Name } else { $Default } }
         $name = [string] (& $get 'name' (& $get 'teamReview' ''))
         if ($name -and $name -notmatch '^[\w.:-]+$') { throw "Review skill name '$name' in config.json isn't a skill name (letters, digits, '.', ':', '-', '_')" }
@@ -350,6 +358,16 @@ function Get-ReviewTiers($Config) {
             reviewerModel   = [string] (& $get 'reviewerModel' $Config.model)
         }
     })
+    # The first tier that covers a change wins, so a no-limit tier (0) anywhere but last hides the rest.
+    for ($i = 0; $i -lt $tiers.Count; $i++) {
+        if ($tiers[$i].maxChangedLines -lt 0 -or $tiers[$i].reviewers -lt 1) {
+            throw "Review tier $($i + 1) in config.json needs maxChangedLines of 0 or more and reviewers of 1 or more"
+        }
+        if ($tiers[$i].maxChangedLines -eq 0 -and $i -lt $tiers.Count - 1) {
+            throw "Review tier $($i + 1) in config.json has no limit (maxChangedLines 0), so the tiers after it never run. Put it last."
+        }
+    }
+    return $tiers
 }
 
 # The first tier whose maxChangedLines covers the change wins; 0 means no limit.
@@ -607,8 +625,11 @@ function Test-LeaksKey($Config, [string] $Text) {
     if ($Config.postAs -ne 'app') { return $false }
     $pem = Read-AppKey $Config
     $flat = $Text -replace '\s', ''
-    foreach ($line in ($pem -split '\r?\n')) {
-        if ($line.Length -ge 32 -and -not $line.StartsWith('-----') -and $flat.Contains($line.Substring(0, 32))) { return $true }
+    # The key's base64 as one run, so a quote that starts mid-line or spans a line break is caught too.
+    $body = (@($pem -split '\r?\n') | Where-Object { -not $_.StartsWith('-----') }) -join ''
+    $body = $body -replace '\s', ''
+    for ($i = 0; $i + 32 -le $body.Length; $i++) {
+        if ($flat.Contains($body.Substring($i, 32))) { return $true }
     }
     return $false
 }
@@ -866,7 +887,12 @@ function New-FollowupPrompt($Config, $Info, [string] $Worktree, [string] $RunDir
     $values.scope = if ($Plan.Mode -eq 'followup') {
         $base = Get-DiffBase $Plan
         $merged = if ($base -ne $Plan.ReviewedSha) { " The author merged ``$($Info.baseRefName)`` in since Sam's review, so ``$($base.Substring(0, 7))`` is Sam's reviewed commit with that merge applied, made locally. Diffing against it leaves out everyone else's changes." } else { '' }
-        "The author pushed new commits. The new changes are ``git diff $base HEAD -- $($Plan.Files -join ' ')``, $($Plan.ChangedLines) lines in the PR's files. Review only those.$merged"
+        # File names come from the PR: each is quoted, so a space can't split one, and the command sits
+        # in a fenced block, so a backtick in a name can't break out of it.
+        $paths = @($Plan.Files | ForEach-Object { '"' + $_ + '"' }) -join ' '
+        $fence = '```'
+        "The author pushed new commits. The new changes are $($Plan.ChangedLines) lines in the PR's files, shown by this command (the file names are quoted data from the PR):`n$fence" + "text`n" +
+            (Protect-Quoted "git diff $base HEAD -- $paths") + "`n$fence`nReview only those.$merged"
     } else {
         "This time Sam only answers the replies waiting in Sam's threads: skip step 2, and leave ``comments``, ``minor_notes`` and ``summary`` empty. ``git log $($Plan.ReviewedSha)..HEAD`` shows any commits since Sam's review, which a reply may point to."
     }
@@ -899,31 +925,42 @@ function Invoke-Sam($Config, [string] $Prompt, [string] $Worktree, [string] $Run
     $schema = (Read-Utf8 (Join-Path $Root 'review-schema.json') | ConvertFrom-Json | ConvertTo-Json -Depth 20 -Compress).Replace(' ', '\u0020')
     # The worktree is the PR's code, and -p skips the workspace trust prompt. Load only your user
     # settings and no MCP servers, so the PR's .claude/settings.json hooks and .mcp.json never run.
+    # dontAsk refuses every tool outside the lists below, whatever default mode your user settings set.
     $claudeArgs = @('-p', '--output-format', 'json',
         '--model', $Config.model,
         '--setting-sources', 'user',
         '--strict-mcp-config',
+        '--permission-mode', 'dontAsk',
         '--append-system-prompt-file', (New-SystemPromptFile),
         '--json-schema', (Format-NativeArg $schema))
     if ($ResumeSession) { $claudeArgs += @('--resume', $ResumeSession) }
     if ($Config.maxBudgetUsd -gt 0) { $claudeArgs += @('--max-budget-usd', [string] $Config.maxBudgetUsd) }
-    $allowed = @($Config.allowedTools)
+    $allowed = @($Config.allowedTools | Where-Object { $_ })
     if ($RunDir) { $allowed += ConvertTo-EditRule $RunDir }
-    $claudeArgs += @('--allowedTools') + $allowed + @('--disallowedTools') + @($Config.disallowedTools)
+    $denied = @($Config.disallowedTools | Where-Object { $_ })
+    # claude rejects either flag with no value after it, so an empty list leaves the flag out.
+    if ($allowed.Count) { $claudeArgs += @('--allowedTools') + $allowed }
+    if ($denied.Count) { $claudeArgs += @('--disallowedTools') + $denied }
 
+    # claude's stderr goes to a file, so its error reaches the thrown message, state.json and the
+    # scheduled poll's log, which a console-only stderr never does.
+    $errLog = Join-Path $WorkDir 'claude-stderr.log'
     Push-Location $Worktree
     # MSBuild node reuse keeps processes holding files in the worktree, which blocks removing it.
     $env:MSBUILDDISABLENODEREUSE = '1'
     try {
         $ErrorActionPreference = 'Continue'
-        $raw = ($Prompt | & claude @claudeArgs) -join "`n"
+        $raw = ($Prompt | & claude @claudeArgs 2> $errLog) -join "`n"
         $exit = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = 'Stop'
         Remove-Item Env:\MSBUILDDISABLENODEREUSE -ErrorAction SilentlyContinue
         Pop-Location
     }
-    if (-not $raw.Trim()) { throw "claude exited $exit with no output; its error is in the console or log above" }
+    if (-not $raw.Trim()) {
+        $stderr = if (Test-Path -LiteralPath $errLog) { (@(Get-Content -LiteralPath $errLog -Tail 20) -join ' ').Trim() } else { '' }
+        throw "claude exited $exit with no output: $stderr"
+    }
     try { $result = $raw | ConvertFrom-Json } catch { throw "claude exited $exit with output that isn't JSON: $raw" }
     $props = $result.PSObject.Properties
     if (-not $props['structured_output'] -or -not $result.structured_output -or ($props['is_error'] -and $result.is_error)) {
@@ -1521,6 +1558,10 @@ function Invoke-PrReview($Config, [hashtable] $State, [string] $Url, [switch] $M
         if ($Manual) { Write-Host $message } else { Write-Verbose $message }
         return
     }
+
+    # Before anything is cloned, reacted to or handed to Codex, and outside the try below, so a .pem
+    # skips this PR without marking its commit failed. Invoke-Sam checks again before each session.
+    Assert-NoPlainKey
 
     $started = Get-Date
     $run = [ordered]@{ at = $started.ToString('o'); repo = $info.repo; number = $info.number; head_sha = $info.headRefOid
