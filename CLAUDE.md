@@ -4,9 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-A personal library of **Claude Code assets** — skills and agents encoding JG's
-(Jason Gersztyn) working standards. It contains no application source, no build
-system, no test suite, no CI, and no package manifest. Every file is Markdown.
+A personal library of **Claude Code assets** — skills, agents and personas
+encoding JG's (Jason Gersztyn) working standards. It contains no application
+source, no build system, no test suite, no CI, and no package manifest. Every file
+is Markdown except Sam's runner files under `personas/sam/` (PowerShell, JSON, a
+`.gitignore` and avatar images; see "Personas" below) and one HTML example under
+`training-materials/code-review-comments/`.
 
 "Correct" here means *the documented standard is unambiguous and self-consistent*,
 not *the code compiles*. Review changes as an editor would, not as a compiler.
@@ -14,7 +17,8 @@ not *the code compiles*. Review changes as an editor would, not as a compiler.
 ## Commands
 
 Git is the only required tooling. Two checks are worth running after editing any
-skill or agent (both verified against this repo):
+skill or agent (both verified against this repo). They need Python 3, and the
+frontmatter check also needs PyYAML (`pip install pyyaml`):
 
 ```bash
 # Frontmatter parses and the `name` field is present
@@ -29,11 +33,24 @@ python -c "
 import re,os,glob
 for f in (glob.glob('skills/*/SKILL.md')+glob.glob('agents/*.md')
           +glob.glob('code-samples/*.md')
+          +glob.glob('personas/**/*.md',recursive=True)
           +glob.glob('training-materials/**/*.md',recursive=True)):
     for m in re.findall(r'\.\./\.\./[\w/.-]+\.md', open(f,encoding='utf-8').read()):
         t=os.path.normpath(os.path.join(os.path.dirname(f),m))
         print(('OK  ' if os.path.exists(t) else 'DEAD'),f,'->',m)"
 ```
+
+After editing a persona's runner or config, check that the script parses and the
+JSON is valid (PowerShell; each script should report `0` parse errors):
+
+```powershell
+foreach ($f in 'sam.ps1','sam-schedule.ps1') { $e=$null; [void][Management.Automation.Language.Parser]::ParseFile("$PWD\personas\sam\$f",[ref]$null,[ref]$e); "$f $($e.Count)" }
+Get-ChildItem personas\sam\*.json | ForEach-Object { Get-Content -Raw $_ | ConvertFrom-Json | Out-Null; "OK $($_.Name)" }
+```
+
+Then `.\sam.ps1 -Pr <PR url> -PromptOnly` (from `personas\sam\`, with a
+`config.json`) reads the PR from GitHub and prints the full-review prompt Sam would
+get. It clones and posts nothing.
 
 ## Architecture: the skill + companion-reference split
 
@@ -84,6 +101,31 @@ The skills share most of this skeleton. Match it when adding another:
 7. `## How to apply this ... in practice` — a numbered trigger→action list ending
    with "when unsure, the section above is the authoritative source."
 
+## Personas
+
+A persona is an assistant that runs on its own, outside an interactive session,
+with a runner script that drives `claude -p`. There is one so far: Sam, JG's PR
+review persona, in `personas/sam/`. Its `README.md` covers each file, setup, the
+config (`reviewSkill` included) and use, and its `TODO.md` the open decisions.
+Rules for editing it:
+
+- **Sam here is the generic copy of JG's working Sam,** which lives outside this
+  repo and develops first. New features are brought across from it in batches,
+  and every batch gets the same generic treatment (see "Personas stay generic"
+  below). Never edit the working copy from this repo.
+- **`comment-standards.md` adapts `jg-pr-comment-editor`.** It's a self-contained
+  copy with five deliberate differences: category tags, a severity scale that
+  decides the category, posted Optional findings, a separate minor-notes list, and
+  warmer replies that thank people and react to plain fixes. When the skill's rules
+  change, review Sam's file and the parked variant too. Neither updates
+  automatically.
+- **The parked variant** is the `comment-standards.md` in
+  `training-materials/sam/parked-pr-comments-skill-2026-11-04/`. It loads
+  `jg-pr-comment-editor` in-session instead of carrying its own standards. Copy it
+  over the live file to switch.
+- **Keep Sam's prompts free of any one plugin's skill names.** The review skill is
+  picked in `config.json` (`reviewSkill`), and `sam.ps1` fills `{{review_step}}`.
+
 ## Load-bearing conventions
 
 - **`Persistance/` and `Utilties/` are misspelled on purpose.** They are JG's
@@ -99,14 +141,33 @@ The skills share most of this skeleton. Match it when adding another:
   public, so `training-materials/code-review-comments/` holds only generic
   reconstructions and freshly written examples: no names, repos, PR numbers,
   private identifiers or domain vocabulary, and no reviewer's own sentences.
-  Add new before/after pairs the same way.
+  Add new before/after pairs the same way. `self-review-examples/` holds full
+  self-reviews rebuilt the same way in a neutral online-store domain. They're
+  deliberately not linked from `jg-pr-comment-editor`, to keep the skill lean.
+  Add new ones there under the same rules.
 - **Skills are prefixed `jg-`**; the `name` field equals the directory name.
 - **Agents** live at `agents/<file>.md`. The file name is free-form, but the
   frontmatter `name` must be lowercase/numbers/hyphens only, so it may legitimately
   differ from the file name (`ux_design_researcher.md` → `ux-design-researcher`).
+- **Personas stay generic and carry no live config.** Each persona folder's
+  `config.json` is git-ignored and holds the real repos, App ID and key path. Only
+  `config.example.json`, with placeholders, is committed. No organization, repo,
+  PR number, App ID, app name or colleague goes into a persona's committed files.
+  Example URLs use `<owner>/<repo>`. Private keys never enter the folder: Sam
+  won't start a review while a `.pem` sits in it outside `.work/`.
+- **Sam's schema fields are a contract.** For every field `sam.ps1` reads, such as
+  `notes_for_jg` (private notes), `thread_replies` and `extra_minor_notes`, rename
+  it in `review-schema.json`, `sam.ps1` and any prompt or doc that names it, or
+  nowhere.
 
 ## Deployment
 
 Not recorded in this repo. The layout mirrors Claude Code's own
 `skills/<name>/SKILL.md` and `agents/<name>.md` conventions, but nothing here
 documents how these files reach `~/.claude/`. Ask before assuming a mechanism.
+
+Personas aren't deployed to `~/.claude/`. Sam runs in place from its own folder
+(`.\sam.ps1`) and keeps its clones, worktrees and drafts there. The skills Sam
+loads in-session (its `reviewSkill`, or `jg-pr-comment-editor` in the parked
+variant) must be installed for your user, because Sam's session loads only user
+settings.

@@ -1,6 +1,6 @@
 ---
 name: jg-pr-comment-editor
-description: Turn code-review findings into PR comments that read like a senior human reviewer wrote them (short, plain, unlabelled) and, only when explicitly asked, post them to GitHub as one review. Keeps each finding's severity grade, or ranks it on JG's ladder (Breaking change → May be important), posts only those ranks, carries severity in the wording and the review body instead of labels, and prints Optional items and nitpicks to the console instead of the PR. Most comments are one or two short sentences of 10 to 25 words, and the ceiling is three sentences and 40 words (60 for a design change). Use after a code review produces findings, before anything is posted to a pull request, or when the user asks to "post the review", "leave the comments on the PR", "make these comments shorter", "tighten the PR feedback", or says the review "reads like AI".
+description: Turn code-review findings into PR comments that read like a senior human reviewer wrote them (short, plain, unlabelled) and, only when explicitly asked, post them to GitHub as one review. Keeps each finding's severity grade, or ranks it on JG's ladder (Breaking change → May be important), posts only those ranks, carries severity in the wording and the review body instead of labels, and prints Optional items and nitpicks to the console instead of the PR. Comments end in a directive ("Please …"), and decisions state a lean, with questions kept for what the reviewer can't know. Use after a code review produces findings, before anything is posted to a pull request, or when the user asks to "post the review", "leave the comments on the PR", "make these comments shorter", "tighten the PR feedback", or says the review "reads like AI".
 ---
 
 # JG PR Comment Editor
@@ -17,6 +17,9 @@ senior human reviewer whose feedback authors act on, compared with AI-drafted co
 were judged too verbose. The reviewer's typical comment is one sentence of 13 words with no label. The
 AI comments ran about 150 words each, every one opened with a bold rank, and half narrated how the
 finding was found. The two AI passes drew no reply, reaction or fix.
+
+Later use on real reviews added the directive ending, the 60-word ceiling for must-fix and decision
+comments, and the triage checks for findings that mislead.
 
 ---
 
@@ -43,15 +46,21 @@ These win any conflict with the rest of this document.
 4. **Inline comments are short.** Most are one or two short sentences of 10 to 25 words. The ceiling
    is three sentences and 40 words. Count words by splitting on spaces; a backticked identifier is one
    word. A code block of five lines or fewer may follow when the fix is code, and it doesn't count. A
-   design change may run to 60 words in up to five short sentences.
-5. **Lead with the problem, a question, the replacement, or an instruction** ("please …"). Name code
-   in backticks and never restate what the anchored code does.
-6. **Say what to do.** Give the replacement, an instruction, or one question that carries the scenario
-   or the alternative. Leave the fix implied only when naming the problem names the fix ("Unused.",
-   "Redundant null check."). Never post a bare "why?".
+   must-fix item (Breaking change, Critical, Blocking), a Needs a decision item or a design change
+   may run to 60 words in up to five short sentences.
+5. **Lead with the problem, the replacement, or an instruction** ("please …"). Only a Needs research
+   comment leads with a question. Name code in backticks and never restate what the anchored code
+   does.
+6. **Say what to do, as a directive.** Give the replacement or an instruction ("Please …"). Leave the
+   fix implied only when naming the problem names the fix ("Unused.", "Redundant null check."). Ask
+   a question only when the answer depends on something you can't know: an unverified fact (Needs
+   research), or the author's intent on a decision where you have no lean at all. Never post a bare
+   "why?".
 7. **No AI tells in inline comments** (Area 3).
 8. **One finding per comment.** Write a repeated finding once, in full, ending "Same for the others."
-   or naming the one other site. Anchor another site only when it needs a different fix. An aside
+   or naming the one other site. Anchor another site only when it needs a different fix. One defect
+   that several findings report through different symptoms is one finding: write it once, about the
+   root cause, where the fix lives. An aside
    ("Relatedly…", "Also…") that is a finding in its own right is ranked on its own: its own input
    grade if it has one, otherwise ranked as an ungraded finding. It is then posted or sent to the
    console by that rank. Otherwise drop it.
@@ -84,16 +93,16 @@ never appears in the posted text; the wording carries it.
 | **Blocking** | yes | A correctness defect that must be fixed before merge. | Claim, then "please …" or "needs to …". Listed in the body. |
 | **Important** | yes | A real defect or risk that should be fixed in this PR but doesn't stop the merge alone. | Claim, then "please …" or "we should …". |
 | **Needs to address** | yes | A concrete gap the author should close: a missing test for a claimed behaviour, a doc or comment that is wrong, a misleading log or name. | Claim, then the replacement or one instruction. |
-| **Needs a decision** | yes | A design choice the author or team has to make. | The problem, then one question that names the choice: "Can we …?" or "Either X or Y?". Never a menu. |
+| **Needs a decision** | yes | A design choice the author or team has to make. | The problem, both options in one sentence, your lean and why ("I lean towards X, since …"), then "Please …" with that option. Only with no lean at all, end in one question: "Either X or Y?". Never a menu. |
 | **Needs research** | yes | A plausible problem that hasn't been confirmed. | A question that carries the scenario: "What happens if two requests …?" |
-| **May be important** | yes | A real but unlikely risk worth a look, usually a follow-up. | One hedged line: "Probably fine, but … Worth a ticket?" |
+| **May be important** | yes | A real but unlikely risk worth a look, usually a follow-up. | One hedged line: "Probably fine, but … Fine to leave for a follow-up ticket." |
 | Optional | console only | An improvement with no defect behind it. | Console line only. |
 | Nit | console only | Naming, wording or style that doesn't change behaviour or mislead. | Console line only. |
 
 Firmness lives in the verb:
 - **Must change:** "please …", "needs to …", "… before merge".
-- **Should change:** "we should …", "can we …?", the replacement offered as a question
-  ("How about `OrderLookup`?").
+- **Should change:** "we should …", "please …", the replacement stated plainly
+  ("Please rename it `OrderLookup`.").
 - **Your call:** "probably fine, but …", "fine if intentional", "up to you", "fine to leave for now".
   Use these only for the posted ranks that genuinely leave the choice open, mostly **May be
   important**.
@@ -101,8 +110,9 @@ Firmness lives in the verb:
 Firm wording gets acted on; hedged wording mostly doesn't. Don't hedge a finding you ranked
 Important or higher.
 
-**Keep the input's grades.** This skill rewords findings; it doesn't re-judge them. Keep the rank or
-grade each finding arrives with, and rank only ungraded findings. If a grade looks wrong, say so in
+**Keep the input's grades.** This skill rewords findings; it doesn't re-judge them, apart from the
+three re-grades below. Keep the rank or grade each finding arrives with, and rank only ungraded
+findings. If a grade looks wrong, say so in
 the console report rather than changing it. If you think a lower-graded finding could block, step 6
 asks the user before anything is posted; until then the verdict follows the kept grades and open
 threads (Area 4). Mapping from
@@ -115,6 +125,18 @@ other reviewers' scales:
   a follow-up PR" in words if the timing matters. A grade that maps to nothing counts as ungraded,
   with a console note.
 
+Three re-grades are allowed, because these grades are wrong in a predictable way. Record each one in
+the console report with its reason:
+- **A test gap in correct code** (a missing test, or a mutant that survives, while the code is right
+  at the head) graded Blocking or higher becomes **Needs to address**, worded firmly.
+- **An open thread is a requirement, not a blocker by itself.** A finding graded Blocking only because
+  an open thread asks for it is ranked on its own defect.
+- **A race is ranked by how wide its timing window is,** not by how bad the outcome would be. A race
+  that needs implausible timing goes to the console list.
+
+Agreement raises confidence, not rank. Several reviewers reporting one finding is a reason to post
+it, not to promote it.
+
 When unsure between two ranks, pick the lower one. Optional and Nit sit below May be important. List
 findings highest rank first, then in diff order.
 
@@ -123,12 +145,11 @@ findings highest rank first, then in diff order.
 Default form, one or two sentences:
 
 ```
-<problem, naming the code>. <fix, or one question that carries the scenario or alternative>.
+<problem, naming the code>. <fix, as a directive>.
 ```
 
-- **Open with the substance.** The most common opener is a plain observation ("`Save` isn't
-  awaited, so failures vanish."). Next is a question. An instruction or the replacement itself also
-  works ("`OrderLookup`?"). No greeting, no preamble, no label.
+- **Open with the substance** (hard rule 5), most often a plain observation: "`Save` isn't
+  awaited, so failures vanish." No greeting or preamble.
 - **One reason clause, only if the author can't infer it:** "since…", "so…", "because…". A named
   principle in one to three words ("magic number", "stringly typed", "Chesterton's fence") stands in
   for an argument; don't explain it.
@@ -143,9 +164,13 @@ Default form, one or two sentences:
   Never test runs, traces, mutation results or confidence statements.
 - **Give the replacement when one exists:** a name in backticks, or one line of code. Use a code
   block only when the fix *is* the code, five lines or fewer. No `suggestion` blocks.
-- **Ask when the answer is the author's intent, lies outside the diff, or is a judgement call.** Put
-  the scenario or the alternative in the question, so one reply settles it. Never ask about something
-  you could check in the diff.
+- **End in a directive** (hard rule 6): "Please clear it only in the entry reset." When you must
+  ask, put the scenario or the alternative in the question, so one reply settles it.
+- **Several valid fixes:** name the one you recommend as the directive. The alternatives go to the
+  console report, not the comment.
+- **A conflict over a pinned value** (a version, digest or count that both the PR and the base branch
+  changed): give the merged value and every other place that pins it. "Resolve the conflict" leaves
+  the hard part to the author.
 - **Verified or not.** For an ungraded finding, state a verified defect, and phrase an unverified one
   as a question (**Needs research**) or, if it is unlikely, as a hedged line (**May be important**).
   A graded finding keeps its grade and that rank's wording. If it admits it wasn't verified, say so
@@ -158,8 +183,9 @@ Default form, one or two sentences:
 - **For a behaviour change,** one before-and-after clause is fine ("The old loop stopped at the
   first error."). That isn't history.
 - **Use the code's and the PR's own terms.** Don't coin new ones.
-- **A design change may run long only to give its shape** (hard rule 4). Order: claim, reason,
-  shape. Keep each sentence under about 15 words.
+- **A comment allowed 60 words** (hard rule 4) uses them only for the path, the symptom and the fix,
+  the options and your lean, or the shape. Order: claim, reason, fix. Keep each sentence under about
+  15 words.
 
 Corrections and replies are in Area 5.
 
@@ -178,8 +204,9 @@ this list before showing or posting it. Area 4 covers the review body.
 | A headline sentence that the body then restates | Say it once. |
 | Sub-sections: "Suggested fix:", "Example:", "Evidence", "Impact", "Why it matters" | One sentence, or the replacement name. |
 | More than one paragraph (a code block aside), bullet lists, "(1)…(2)…" enumerations | One paragraph of one or two sentences. |
-| Option menus: (a)/(b), "Options:", "Alternatively…" | One question; at most "Either X or Y?". |
-| "Consider …" openers | Name the replacement, or ask "Why not X?". |
+| Option menus: (a)/(b), "Options:", "Alternatively…" | One directive with your lean; "Either X or Y?" only with no lean. |
+| "Consider …" openers | Name the replacement, or say "Please …". |
+| "Can we …?" or "Could you …?" when you already know what you want | "Please …". |
 | Lists of line numbers or `file:line` references, commit SHAs | At most one pointer to the place the fix lives. |
 | Three or more backticked identifiers in one comment | Name the one or two that matter. |
 | Process narration: "I traced…", "ran on a copy", "mutants", "second pass", "N reviewers" | Leave it out. |
@@ -216,6 +243,8 @@ The body is five lines or fewer (hard rule 9), and one line is usual. In order:
 - **Optional lines,** used only while the body stays within five lines:
   - a theme that recurs across the PR, in one line, when it replaces several inline comments;
   - what wasn't reviewed, when it matters ("Didn't review the migration scripts.");
+  - when open threads claim fixes you verified on the head (step 2), one line saying so: "The fixes
+    in the open threads hold, so they can be resolved.";
   - one praise line, only if the findings name a concrete strength ("Good call moving the retries
     into `RetryPolicy`."). Never generic praise, and never thanks for the PR.
 - **If the body would pass five lines,** drop the optional lines first, then merge PR-level findings
@@ -239,13 +268,27 @@ The body must agree with the event.
 1. **Collect.** Read the findings (a review run directory, a findings file, or the conversation,
    including PR-level items in earlier review summaries), the PR state and head sha
    (`gh pr view <n> --json state,headRefOid`), and the open review threads (GraphQL `reviewThreads`
-   with `isResolved`). If the PR is merged or closed, stop and say so.
+   with `isResolved`), and the PR description's follow-ups or known gaps. If the PR is merged or
+   closed, stop and say so.
 2. **Triage.**
    - Use each finding's latest wording. Drop findings their own reviewer withdrew; if a withdrawal
      keeps a remnant with its own grade, treat the remnant as a finding.
    - Drop findings the current head no longer supports.
    - Drop duplicates of open threads (hard rule 11), and note any that are must-fix (hard rule 13).
-   - Keep each finding's grade and rank the ungraded ones (Area 1).
+     Treat follow-ups or known gaps the PR description already lists the same way. Only a cheap fix
+     the author didn't name goes to the console list.
+   - Check every open thread whose reply claims a fix ("Fixed in <sha>") against the head. This is a
+     check of a stated claim, not a new review. A fix that doesn't hold becomes a candidate reply
+     (hard rule 11). Fixes that hold can earn the body line in Area 4.
+   - When findings disagree on a fact, read the code that decides it, or better, run it. A run beats
+     a read. Never go with the majority.
+   - Fold one defect reported through several symptoms into one finding on the root cause (hard
+     rule 8).
+   - A convention finding (house style, "best practice") needs a written rule in the repo or a
+     precedent in the code. Cite whichever exists. With neither, it isn't a postable finding at
+     all, whatever its grade: move it to the console list and say why in the step 7 report. This
+     is a drop, not one of Area 1's re-grades.
+   - Keep each finding's grade, apply only the re-grades Area 1 allows, and rank the ungraded ones.
    - Move Optional and Nit items to the console list.
 3. **Rewrite.** Put each ranked finding into the Area 2 shape. You can delegate this step to the
    `pr-comment-editor` agent with the ranked findings, the intended event and any standing must-fix
@@ -254,11 +297,13 @@ The body must agree with the event.
    line is in the PR diff (`gh api --paginate repos/<o>/<r>/pulls/<n>/files`). Move any finding that
    can't be anchored to the review body.
 5. **Check.** Count the words in every inline comment against hard rule 4 and read each one against
-   Area 3. Check the body against Area 4. Rewrite anything that fails.
+   Area 3. Check every comment that ends in "?" against hard rule 6. Check the body against Area 4.
+   Rewrite anything that fails.
 6. **Show or post.**
    - Without an explicit instruction to post, print the drafts and the step 7 report, then stop.
    - With one, check hard rule 13 first. If you think any lower-graded finding could block, print it
-     and ask before posting. Then post a single review,
+     and ask before posting. Re-read the open threads, since other reviewers may have opened some
+     during the review, and drop anything a new thread now covers. Then post a single review,
      `gh api -X POST repos/<o>/<r>/pulls/<n>/reviews`, with `event`, `commit_id` set to the head
      sha, the body, and the comments as `{path, line, side, body}`, where `side` is `RIGHT`, or
      `LEFT` for a deleted line.
@@ -269,7 +314,10 @@ The body must agree with the event.
    - candidate replies to open threads (hard rule 11), written to the reply rules below, because they
      may become PR text;
    - standing must-fix findings raised only in other reviewers' threads;
-   - any grade you think is wrong, and any graded finding that admits it wasn't verified;
+   - any grade you think is wrong, any re-grade you made (Area 1) and why, and any graded finding
+     that admits it wasn't verified;
+   - any convention finding moved to the console list for want of a rule (step 2);
+   - the alternatives to any fix you recommended as a directive;
    - anything left unposted, and why.
 
 **Replies and corrections** (only when told to post them):
@@ -284,7 +332,8 @@ The body must agree with the event.
 ## Not covered here
 
 - **Running the review itself.** Use a review skill or `/code-review`. This skill starts from its
-  findings, and never adds findings of its own.
+  findings, and never adds findings of its own. Checking a claimed fix on an open thread (step 2)
+  is the one exception, and it can only produce a candidate reply.
 - **Comments in code.** This skill shapes review comments, not code comments or docs.
 - **Fixing the code.** See Roadmap.
 
@@ -315,4 +364,8 @@ background only.
    or cut it.
 5. A comment has a label, a heading or a "Suggested fix" section: delete the scaffolding and keep the
    one sentence that says what to change.
-6. When unsure, the Hard rules and the severity ladder above are the authoritative source.
+6. A comment ends in "?": turn it into a directive ("Please …") unless you truly can't know the
+   answer. On a decision, state your lean first.
+7. Reviewers disagree, or one defect shows up in several findings: settle the fact from the code, or
+   merge the findings into one about the root cause, before you rank anything.
+8. When unsure, the Hard rules and the severity ladder above are the authoritative source.

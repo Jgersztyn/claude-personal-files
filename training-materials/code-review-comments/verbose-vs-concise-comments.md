@@ -50,6 +50,9 @@ How the reference reviewer carries severity without labels:
   about …?" for suggestions; "fine if intentional" and "fine to leave for now" for
   take-it-or-leave-it.
   In one sample, 8 of 9 firm comments were acted on, against 2 of 8 hedged ones.
+  Later feedback pushed further in the firm direction: when the reviewer has a view, a suggestion
+  ends in "please …" too, and a question is kept for what the reviewer can't know. The examples
+  below follow that rule.
 
 Other human reviewers in the same codebases write the same way: median 12 words, about a quarter of
 comments are questions, and none open with bold text. About 60% of the AI-written comments in those
@@ -79,12 +82,15 @@ wording for when the input grades them higher.
   live server." (19)
 - "This breaks the single-file export. Please handle that case before merge." (11)
 
-**Questions that carry the scenario or the alternative**
+**A question, only for what the reviewer can't know** (here an unverified scenario, Needs research)
 - "What happens if two requests create an order at the same moment? Both could read the same next
   number." (19)
-- "Missing a `return;` after this guard? The guard above has one." (11)
-- "These types already exist in `Common.Messaging`. Can we use those instead of a copy?" (14)
-- "Could the standard compression library do this instead of the hand-written loop?" (12)
+
+**A directive where a question used to go** (the reviewer already knows what they want)
+- "This guard needs a `return;` like the one above it." (10)
+- "These types already exist in `Common.Messaging`. Please use those instead of a copy." (13)
+- "The standard compression library already does this. Please use it instead of the hand-written
+  loop." (15)
 
 **A test that proves less than it claims**
 - "This test checks the retry, not the caching its name promises. Please rename it
@@ -94,8 +100,8 @@ wording for when the input grades them higher.
 - "This no longer stops at the first error the way the old loop did. Fine if that's intended." (18)
 
 **Reader experience as evidence** (sparingly: at most one per review)
-- "I had to read this twice to see why the cache is cleared here. Can the clear move into
-  `Refresh`?" (20)
+- "I had to read this twice to see why the cache is cleared here. Please move the clear into
+  `Refresh`." (20)
 
 **Code comments and docs: what's wrong and where it belongs**
 - "Please drop the expiry detail from this comment. It belongs to the cache and will go stale when the
@@ -215,13 +221,14 @@ re-filed, plus a candidate reply on that thread if the finding added a new fact.
 >   becomes async, so the load-race guard needs re-checking.
 > - (b) Keep it as is and update the Follow-up with the real reason for deferring.
 
-**After (22 words):**
+**After (37 words):**
 
-> The resolver PR has merged, so `CategoryRules` already applies this rule. Can we use it here rather
-> than keep a second copy?
+> The resolver PR has merged, so `CategoryRules` already applies this rule. Either use it here or
+> keep the copy and update the Follow-up. I lean towards using it, since two copies will drift.
+> Please switch to it.
 
-**What was cut:** the options menu (the question invites the author's reason, which covers option
-b), the drift paragraph, and the "Relatedly" aside. The aside is a separate Optional finding, so it
+**What was cut:** the options menu (one sentence names both roads, then the lean and a directive),
+the drift paragraph (one reason clause), and the "Relatedly" aside. The aside is a separate Optional finding, so it
 goes to the console. **Caveat:** in the real case another reviewer's open thread had already asked
 for one shared rule. Under hard rule 11 the right output was a candidate reply carrying the new fact
 (the resolver PR has merged), not a new comment. The After shows the wording had no thread existed.

@@ -1,0 +1,68 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "comments", "minor_notes", "extra_minor_notes", "thread_replies", "ran", "notes_for_jg"],
+  "$defs": {
+    "note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "line", "category", "note"],
+      "properties": {
+        "path": { "type": "string" },
+        "line": { "type": "integer" },
+        "category": { "type": "string", "enum": ["minor", "nitpick"] },
+        "note": { "type": "string", "description": "One short line, 20 words or fewer." }
+      }
+    }
+  },
+  "properties": {
+    "verdict": { "type": "string", "enum": ["looks_good", "needs_changes", "needs_discussion"] },
+    "summary": { "type": "string", "description": "Review body posted on the PR. Five lines or fewer, opening with the verdict." },
+    "comments": {
+      "type": "array",
+      "maxItems": 20,
+      "description": "Inline comments for blocking, needs_decision and optional findings, on lines that appear in the PR diff.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "line", "category", "body"],
+        "properties": {
+          "path": { "type": "string", "description": "Repo-relative file path." },
+          "line": { "type": "integer", "description": "Line in the new file (RIGHT) or old file (LEFT)." },
+          "side": { "type": "string", "enum": ["RIGHT", "LEFT"] },
+          "start_line": { "type": "integer", "description": "First line of a multi-line comment; omit for single-line." },
+          "category": { "type": "string", "enum": ["blocking", "needs_decision", "optional"] },
+          "severity": { "type": "integer", "minimum": 1, "maximum": 10, "description": "Score on the severity scale. Not posted." },
+          "body": { "type": "string", "description": "Comment text without the [Tag]; the script adds it." }
+        }
+      }
+    },
+    "minor_notes": {
+      "type": "array",
+      "maxItems": 10,
+      "description": "Posted together as one separate PR comment.",
+      "items": { "$ref": "#/$defs/note" }
+    },
+    "extra_minor_notes": {
+      "type": "array",
+      "description": "Never posted.",
+      "items": { "$ref": "#/$defs/note" }
+    },
+    "thread_replies": {
+      "type": "array",
+      "description": "Follow-ups only: one answer per Sam thread that needs one, a reaction, a reply, or both. Empty on a first review.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["comment_id", "body", "reaction"],
+        "properties": {
+          "comment_id": { "type": "integer", "description": "The comment_id shown on Sam's thread." },
+          "body": { "type": "string", "description": "The reply text, or an empty string for a reaction alone." },
+          "reaction": { "type": "string", "enum": ["none", "+1", "hooray", "heart"], "description": "Reaction on the author's latest reply in the thread, or none." }
+        }
+      }
+    },
+    "ran": { "type": "array", "items": { "type": "string" }, "description": "Each command run this session and what it showed." },
+    "notes_for_jg": { "type": "string", "description": "Private notes. Never posted." }
+  }
+}
