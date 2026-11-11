@@ -61,7 +61,7 @@ gh search (searchQuery): open PRs where you're directly requested
 | `config.example.json` | Copy to `config.json`, and keep it beside `sam.ps1`: a key `config.json` leaves out takes its value from here, except the repos, the tiers and the two tool lists. Search query, repo allowlist, model, review tiers, tool allowlist, posting and follow-up options. |
 | `sam.ps1` | The runner. |
 | `sam-schedule.ps1` | Turns unattended polling on and off, as a Windows scheduled task. |
-| `sam-avatar.svg`, `sam-avatar.png` | Avatar for Sam's GitHub App (512×512, transparent; the PNG is rendered from the SVG). |
+| `sam-avatar.svg`, `sam-avatar.png` | Avatar for Sam's GitHub App (512×512, transparent outside the circle; the SVG embeds the same picture). |
 | `TODO.md` | Open decisions, known gaps, and lessons from the first real run. |
 | `drafts/` | Sam's reviews. Created on first run. |
 | `.work/` | Clones, worktrees, state, lock, and the private logs in `.work/logs/`. Created on first run. Safe to delete, but Sam then forgets what it reviewed and posted, so it re-reviews everything and stops following up. |
