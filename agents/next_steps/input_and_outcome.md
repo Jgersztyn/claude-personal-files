@@ -3,6 +3,10 @@
 - **Status:** Starting point — not yet built. Stored here until JG decides to
   build it; every part is expected to be iterated on.
 - **Logged:** 2026-11-10
+- **Update 2026-11-15:** JG chose to add this to `ux-design-researcher` as a
+  third mode, **Concept mode**, instead of separate agents. That replaces the
+  "Number of agents" decision and the agent split below. The agent file is
+  now the authority; this document is kept as the original starting point.
 
 ## Purpose
 

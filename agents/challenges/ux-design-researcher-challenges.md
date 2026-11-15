@@ -50,6 +50,10 @@ be measured against them.
 | CH-27 | User may miss a handoff during a background run | Limitation | Open |
 | CH-28 | Handoff wait budget | Decision | Open |
 | CH-29 | Repeat CAPTCHAs on the same site | Decision | Open |
+| CH-30 | Claude in Chrome tools unverified for this agent | Unverified | Open |
+| CH-31 | Mode question depends on the calling session | Limitation | Mitigated |
+| CH-32 | Concept mode never executed | Unverified | Open |
+| CH-33 | Local-only and working-directory rules are not enforced | Risk | Open |
 
 ---
 
@@ -242,6 +246,7 @@ be measured against them.
   The calling session can rerun with corrected input.
 - **History:**
   - 2026-11-10 — Logged.
+  - 2026-11-15 — One exception added: the mode question. See CH-31.
 
 ## CH-16 — Model value `opus[1m]` not in the documented list
 
@@ -263,6 +268,9 @@ be measured against them.
   each machine has configured.
 - **History:**
   - 2026-11-10 — Logged.
+  - 2026-11-15 — `disallowedTools` removed so Concept mode can write files.
+    The agent now has no `tools` or `disallowedTools` field and inherits
+    every tool; hard rule 9 limits where it writes. See CH-33.
 
 ## CH-18 — Deployment to `~/.claude/agents/` not recorded
 
@@ -323,6 +331,12 @@ be measured against them.
   - 2026-11-10 — Now 496 lines after CH-21/CH-22 fixes. Proposed IMP-01 and
     IMP-02 (`../next_steps/improvements.md`) need roughly 25–35 more lines, so
     this limit must be revisited before they are built.
+  - 2026-11-15 — **Limit exceeded: now 738 lines.** Concept mode, the mode
+    trigger tables, the Chrome section, and the Concept report template
+    added about 240 lines at JG's request. Nothing was moved out, because
+    deployment (CH-18) is undecided and a companion file might not reach the
+    agent. JG to decide: raise the limit, or move the measurement script and
+    the three report templates to a companion file.
 
 ## CH-21 — Tier 2 `curl` command fails: download folder never created
 
@@ -427,3 +441,56 @@ be measured against them.
   budget (CH-28).
 - **History:**
   - 2026-11-10 — Logged from IMP-02 open questions.
+
+## CH-30 — Claude in Chrome tools unverified for this agent
+
+- **Type / Status:** Unverified · Open
+- **Detail:** The agent assumes Claude in Chrome tools are named
+  `mcp__claude-in-chrome__*`, that a subagent can call them, and that they
+  can open `file://` pages and `localhost` URLs. None of this has been
+  tested. JG asked on 2026-11-15 not to verify yet.
+- **Workaround:** The agent falls back to Playwright alone when Chrome tools
+  are missing.
+- **Resolves when:** A Concept-mode run opens a local page in Chrome.
+- **History:**
+  - 2026-11-15 — Logged with Concept mode.
+
+## CH-31 — Mode question depends on the calling session
+
+- **Type / Status:** Limitation · Mitigated
+- **Detail:** JG wants to be asked for the mode straight after asking a
+  question. A subagent has no question tool (CH-15), so the agent's
+  `description` tells the calling session to ask before delegating. The
+  calling session may not follow it.
+- **Workaround:** With no trigger phrase and no question tool, the agent
+  infers the mode and says so on the report's first line, with the phrase
+  that selects another. Run as the main session agent, it asks directly.
+- **History:**
+  - 2026-11-15 — Logged with Concept mode.
+
+## CH-32 — Concept mode never executed
+
+- **Type / Status:** Unverified · Open
+- **Detail:** Nothing in Concept mode has been run: the minimal Blazor and
+  Vite apps, the dev-server start and stop, the self-audit loop, the
+  integration criteria, or the annotated-image template (its arrowheads use
+  SVG `context-stroke`, which needs a recent Chromium).
+- **Resolves when:** One run per stack (HTML, Blazor, MudBlazor, MaterialUI)
+  returns a complete Concept report with annotated images.
+- **History:**
+  - 2026-11-15 — Logged with Concept mode.
+
+## CH-33 — Local-only and working-directory rules are not enforced
+
+- **Type / Status:** Risk · Open
+- **Detail:** Hard rules 9 (write only inside the working directory) and 10
+  (Chrome for local pages only) are instructions the agent follows, not
+  barriers. The agent now inherits Write, Edit, and Bash, and Chrome drives
+  JG's real, logged-in browser.
+- **Resolves when:** Enforced outside the agent — the Chrome extension's site
+  permissions limited to `localhost`, or a hook that rejects non-local
+  navigation and writes outside the working directory — or the risk is
+  accepted. "Without limit" for Chrome is a permission allow rule in Claude
+  Code settings, not something the agent file can grant (see CH-24).
+- **History:**
+  - 2026-11-15 — Logged with Concept mode.
