@@ -104,6 +104,8 @@ The skills share most of this skeleton. Match it when adding another:
 - **Agents** live at `agents/<file>.md`. The file name is free-form, but the
   frontmatter `name` must be lowercase/numbers/hyphens only, so it may legitimately
   differ from the file name (`ux_design_researcher.md` → `ux-design-researcher`).
+- **"RXer" means the `ux-design-researcher` agent** (`agents/ux_design_researcher.md`).
+  It is JG's shorthand for the UX/UI researcher; no file or agent carries the name.
 
 ## Deployment
 
