@@ -9,7 +9,7 @@ Turns review findings into PR comments an author can act on in a few seconds, wr
 respected human reviewer writes them. This skill is self-contained and authoritative: every rule is
 stated here. The companion training material illustrates the rules but never defines them.
 
-The `pr-comment-editor` agent (`agents/pr_comment_editor.md`) applies the same rules to rewriting
+The `pr-comment-editor` agent (`agents/pr_comment_editor/AGENT.md`) applies the same rules to rewriting
 only. This skill can delegate step 3 of the workflow to it. If the two ever disagree, this skill wins.
 
 **Why the rules look like this.** They come from a study of more than 500 review comments by one

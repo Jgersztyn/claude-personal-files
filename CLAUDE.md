@@ -20,14 +20,14 @@ skill or agent (both verified against this repo):
 # Frontmatter parses and the `name` field is present
 python -c "
 import yaml,re,glob
-for f in glob.glob('skills/*/SKILL.md')+glob.glob('agents/*.md'):
+for f in glob.glob('skills/*/SKILL.md')+glob.glob('agents/*/AGENT.md'):
     d=yaml.safe_load(re.match(r'^---\n(.*?)\n---\n',open(f,encoding='utf-8').read(),re.S).group(1))
     print(f,'->',d['name'])"
 
 # Companion-reference links still resolve
 python -c "
 import re,os,glob
-for f in (glob.glob('skills/*/SKILL.md')+glob.glob('agents/*.md')
+for f in (glob.glob('skills/*/SKILL.md')+glob.glob('agents/*/AGENT.md')
           +glob.glob('code-samples/*.md')
           +glob.glob('training-materials/**/*.md',recursive=True)):
     for m in re.findall(r'\.\./\.\./[\w/.-]+\.md', open(f,encoding='utf-8').read()):
@@ -101,12 +101,34 @@ The skills share most of this skeleton. Match it when adding another:
   private identifiers or domain vocabulary, and no reviewer's own sentences.
   Add new before/after pairs the same way.
 - **Skills are prefixed `jg-`**; the `name` field equals the directory name.
-- **Agents** live at `agents/<file>.md`. The file name is free-form, but the
+- **Agents** live at `agents/<folder>/AGENT.md`, one folder per agent; an agent's
+  supporting notes sit in the same folder. The folder name is free-form, but the
   frontmatter `name` must be lowercase/numbers/hyphens only, so it may legitimately
-  differ from the file name (`ux_design_researcher.md` → `ux-design-researcher`).
+  differ from the folder name (`ux_design_researcher/` → `ux-design-researcher`).
+- **"RXer" means the `ux-design-researcher` agent** (`agents/ux_design_researcher/AGENT.md`).
+  It is JG's shorthand for the UX/UI researcher; no file or agent carries the name.
+- **The UX work is split four ways, and the lines are deliberate.**
+  - The RXer researches widely, stores reference images, and writes several
+    self-contained HTML mocks. It never builds, compiles, audits or ranks.
+    One run covers a few items on one page.
+  - `skills/jg-page-prototyper/` handles a whole page: it runs in the main
+    session, splits the page, starts one RXer run per piece, and assembles
+    one full-page prototype per design direction. It has no companion
+    reference yet.
+  - `agents/ux_auditor/AGENT.md` (`ux-auditor`) reviews a UI that already
+    exists against a fixed checklist. It never changes a file.
+  - `skills/jg-component-builder/` turns one chosen HTML mock into MudBlazor or
+    MaterialUI code. It has no companion reference yet.
+
+  Do not move building or auditing back into the RXer.
+- **Keep every agent and skill file small.** The RXer's limit is 500 lines. Cut
+  or move content before growing a file, and report line counts after an edit.
 
 ## Deployment
 
 Not recorded in this repo. The layout mirrors Claude Code's own
-`skills/<name>/SKILL.md` and `agents/<name>.md` conventions, but nothing here
-documents how these files reach `~/.claude/`. Ask before assuming a mechanism.
+`skills/<name>/SKILL.md` convention; agents use `agents/<folder>/AGENT.md`.
+Whether Claude Code loads that layout once copied is not confirmed: its docs
+say agent folders are scanned recursively, but the agent did not resolve in
+the first test runs, when nothing had been deployed. Nothing here documents
+how these files reach `~/.claude/`. Ask before assuming a mechanism.

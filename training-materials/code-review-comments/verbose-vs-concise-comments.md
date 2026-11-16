@@ -1,6 +1,6 @@
 # PR comments: before and after
 
-Training material for `skills/jg-pr-comment-editor` and `agents/pr_comment_editor.md`. The skill is
+Training material for `skills/jg-pr-comment-editor` and `agents/pr_comment_editor/AGENT.md`. The skill is
 authoritative; this file only illustrates it. Back to the skill:
 [`../../skills/jg-pr-comment-editor/SKILL.md`](../../skills/jg-pr-comment-editor/SKILL.md).
 
