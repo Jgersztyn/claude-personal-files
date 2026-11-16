@@ -213,5 +213,5 @@ brevity rules.
 
 ## Further Reading
 
-- `../training-materials/code-review-comments/verbose-vs-concise-comments.md`: generic before/after
+- `../../training-materials/code-review-comments/verbose-vs-concise-comments.md`: generic before/after
   rewrites and examples of each comment type.

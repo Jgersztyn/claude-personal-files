@@ -1,7 +1,7 @@
 # Challenges — ux-design-researcher
 
 Tracks blockers, limitations, and unverified assumptions in
-[`../ux_design_researcher.md`](../ux_design_researcher.md), so improvements can
+[`../AGENT.md`](../AGENT.md), so improvements can
 be measured against them.
 
 ## How to use this log

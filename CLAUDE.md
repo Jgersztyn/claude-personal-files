@@ -20,14 +20,14 @@ skill or agent (both verified against this repo):
 # Frontmatter parses and the `name` field is present
 python -c "
 import yaml,re,glob
-for f in glob.glob('skills/*/SKILL.md')+glob.glob('agents/*.md'):
+for f in glob.glob('skills/*/SKILL.md')+glob.glob('agents/*/AGENT.md'):
     d=yaml.safe_load(re.match(r'^---\n(.*?)\n---\n',open(f,encoding='utf-8').read(),re.S).group(1))
     print(f,'->',d['name'])"
 
 # Companion-reference links still resolve
 python -c "
 import re,os,glob
-for f in (glob.glob('skills/*/SKILL.md')+glob.glob('agents/*.md')
+for f in (glob.glob('skills/*/SKILL.md')+glob.glob('agents/*/AGENT.md')
           +glob.glob('code-samples/*.md')
           +glob.glob('training-materials/**/*.md',recursive=True)):
     for m in re.findall(r'\.\./\.\./[\w/.-]+\.md', open(f,encoding='utf-8').read()):
@@ -101,14 +101,16 @@ The skills share most of this skeleton. Match it when adding another:
   private identifiers or domain vocabulary, and no reviewer's own sentences.
   Add new before/after pairs the same way.
 - **Skills are prefixed `jg-`**; the `name` field equals the directory name.
-- **Agents** live at `agents/<file>.md`. The file name is free-form, but the
+- **Agents** live at `agents/<folder>/AGENT.md`, one folder per agent; an agent's
+  supporting notes sit in the same folder. The folder name is free-form, but the
   frontmatter `name` must be lowercase/numbers/hyphens only, so it may legitimately
-  differ from the file name (`ux_design_researcher.md` → `ux-design-researcher`).
-- **"RXer" means the `ux-design-researcher` agent** (`agents/ux_design_researcher.md`).
+  differ from the folder name (`ux_design_researcher/` → `ux-design-researcher`).
+- **"RXer" means the `ux-design-researcher` agent** (`agents/ux_design_researcher/AGENT.md`).
   It is JG's shorthand for the UX/UI researcher; no file or agent carries the name.
 
 ## Deployment
 
 Not recorded in this repo. The layout mirrors Claude Code's own
-`skills/<name>/SKILL.md` and `agents/<name>.md` conventions, but nothing here
+`skills/<name>/SKILL.md` convention; agents use `agents/<folder>/AGENT.md`, which
+Claude Code does not load as-is (it expects `agents/<name>.md`). Nothing here
 documents how these files reach `~/.claude/`. Ask before assuming a mechanism.
