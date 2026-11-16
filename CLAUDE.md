@@ -107,9 +107,14 @@ The skills share most of this skeleton. Match it when adding another:
   differ from the folder name (`ux_design_researcher/` → `ux-design-researcher`).
 - **"RXer" means the `ux-design-researcher` agent** (`agents/ux_design_researcher/AGENT.md`).
   It is JG's shorthand for the UX/UI researcher; no file or agent carries the name.
-- **The UX work is split three ways, and the lines are deliberate.**
+- **The UX work is split four ways, and the lines are deliberate.**
   - The RXer researches widely, stores reference images, and writes several
     self-contained HTML mocks. It never builds, compiles, audits or ranks.
+    One run covers a few items on one page.
+  - `skills/jg-page-prototyper/` handles a whole page: it runs in the main
+    session, splits the page, starts one RXer run per piece, and assembles
+    one full-page prototype per design direction. It has no companion
+    reference yet.
   - `agents/ux_auditor/AGENT.md` (`ux-auditor`) reviews a UI that already
     exists against a fixed checklist. It never changes a file.
   - `skills/jg-component-builder/` turns one chosen HTML mock into MudBlazor or
@@ -122,6 +127,8 @@ The skills share most of this skeleton. Match it when adding another:
 ## Deployment
 
 Not recorded in this repo. The layout mirrors Claude Code's own
-`skills/<name>/SKILL.md` convention; agents use `agents/<folder>/AGENT.md`, which
-Claude Code does not load as-is (it expects `agents/<name>.md`). Nothing here
-documents how these files reach `~/.claude/`. Ask before assuming a mechanism.
+`skills/<name>/SKILL.md` convention; agents use `agents/<folder>/AGENT.md`.
+Whether Claude Code loads that layout once copied is not confirmed: its docs
+say agent folders are scanned recursively, but the agent did not resolve in
+the first test runs, when nothing had been deployed. Nothing here documents
+how these files reach `~/.claude/`. Ask before assuming a mechanism.
