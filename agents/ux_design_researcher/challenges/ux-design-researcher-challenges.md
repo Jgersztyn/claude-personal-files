@@ -54,6 +54,8 @@ be measured against them.
 | CH-31 | Mode question depends on the calling session | Limitation | Mitigated |
 | CH-32 | Concept mode never executed | Unverified | Open |
 | CH-33 | Local-only and working-directory rules are not enforced | Risk | Open |
+| CH-34 | Playwright MCP writes files outside the output folder | Limitation | Mitigated |
+| CH-35 | A signed-in session leaks the account into captures | Risk | Mitigated |
 
 ---
 
@@ -119,6 +121,11 @@ be measured against them.
 - **Resolves when:** Confirmed on a Windows run; record any challenge seen.
 - **History:**
   - 2026-11-10 — Logged.
+  - 2026-11-15 — First two runs, on Linux. Bing Images worked on all 6
+    searches with no bot check. DuckDuckGo Images failed both times: an empty
+    results page, then `net::ERR_CONNECTION_RESET`. The agent now uses Bing by
+    default and marks DuckDuckGo an unreliable fallback. Windows still
+    untested.
 
 ## CH-06 — Tier 2 fallback cannot render pages
 
@@ -157,6 +164,10 @@ be measured against them.
      hand once, and relax the no-login rule for named sites only.
 - **History:**
   - 2026-11-10 — Logged. Option 1 is the current behaviour by default.
+  - 2026-11-15 — First two runs: Mobbin, Refero and CodePen all wall their
+    search behind a login, so app-screen libraries have never produced a
+    reference. Option 2 was tried on Pinterest and worked (see IMP-01 and
+    CH-09). Page Flows was not tried.
 
 ## CH-09 — Pinterest: sign-up wall, bot blocking, scraping terms
 
@@ -170,6 +181,10 @@ be measured against them.
   cite that; stop at the wall.
 - **History:**
   - 2026-11-10 — Logged.
+  - 2026-11-15 — First two runs. Signed out, Pinterest search hit the login
+    wall at once. With JG signed in before the run, it gave 6 references and
+    no bot check. The limits are now 3 searches per site, as a hard rule.
+    Being signed in brought a new risk: see CH-35.
 
 ## CH-10 — Inspiration site list and access notes unverified
 
@@ -182,6 +197,14 @@ be measured against them.
   agent's table and add a line per site to this entry's History.
 - **History:**
   - 2026-11-10 — Logged.
+  - 2026-11-15 — First two runs, on Linux. Sites that gave nothing:
+    - Figma Community — results stayed as loading placeholders. Removed from
+      the agent's table.
+    - collectui.com — no matching posts. Removed from the agent's table.
+    - uiverse.io — `/search?q=` returned 404; `/elements?search=` loaded. The
+      table now gives the working address.
+    - Pinterest, CodePen, Mobbin, Refero — search is behind a login. The
+      table now says so.
 
 ## CH-11 — Inspiration results are not repeatable
 
@@ -291,6 +314,13 @@ be measured against them.
     it on each device; (4) ad hoc, ask Claude to read the file and use its
     body as a general-purpose subagent's prompt — frontmatter (model, tool
     limits) and auto-delegation are lost.
+  - 2026-11-15 — Agents moved to `agents/<folder>/AGENT.md`. In the first two
+    runs `@agent-ux-design-researcher` did not resolve. Both runs used
+    option 4: a general-purpose agent told to read `AGENT.md`. That worked,
+    and both reports followed the Report structure. The layout stays as it
+    is. The cause is not confirmed: the run notes blame the folder layout,
+    but the Claude Code docs say agent folders are scanned recursively, so
+    the file may simply not have been in `~/.claude/agents/`.
 
 ## CH-19 — Subfolders of `agents/` would load as agents
 
@@ -398,6 +428,8 @@ be measured against them.
   the agent navigates.
 - **History:**
   - 2026-11-10 — Logged from IMP-01/IMP-02 open questions.
+  - 2026-11-15 — Answered for Linux: with Playwright MCP run with no flags,
+    the window is visible. JG watched both runs. Windows still untested.
 
 ## CH-26 — Do logins persist between runs?
 
@@ -409,6 +441,9 @@ be measured against them.
   the site still shows as logged in.
 - **History:**
   - 2026-11-10 — Logged from IMP-01 open questions.
+  - 2026-11-15 — Partly answered, on Linux: a Pinterest login made before
+    the run carried into the next agent run in the same session. Whether it
+    survives a restart of Claude Code or the Playwright server is untested.
 
 ## CH-27 — User may miss a handoff during a background run
 
@@ -431,6 +466,15 @@ be measured against them.
   total wait budget per run instead.
 - **History:**
   - 2026-11-10 — Logged from IMP-01/IMP-02 open questions.
+  - 2026-11-15 — A hand-off by the calling session, before the agent
+    started, worked for Pinterest (IMP-01 reworked around it). Lessons:
+    - A wait of 120 seconds or more gets moved to the background, so each
+      wait is capped under two minutes, not 3 minutes.
+    - An address change is not proof of login. Confirm by loading a search
+      and checking that results show with no wall.
+    - Signing in with Google can open an extra verification tab.
+
+    The number of hand-offs per run is still undecided.
 
 ## CH-29 — Repeat CAPTCHAs on the same site
 
@@ -494,3 +538,39 @@ be measured against them.
   Code settings, not something the agent file can grant (see CH-24).
 - **History:**
   - 2026-11-15 — Logged with Concept mode.
+
+## CH-34 — Playwright MCP writes files outside the output folder
+
+- **Type / Status:** Limitation · Mitigated
+- **Detail:** On every navigation the Playwright MCP server writes page
+  snapshots and console logs to `.playwright-mcp/` in the working directory:
+  105 files in the first run and 77 in the second. The agent cannot choose
+  that location, so "write only inside the output folder" could not be met
+  as written. In a signed-in session these files also hold account details
+  (CH-35).
+- **Workaround:** Hard rule 12 now names the folder as a known side effect.
+  The agent deletes it at the end of the run, keeps none of its contents,
+  and says so in the report.
+- **Resolves when:** The server's output folder is set in its configuration
+  (`--output-dir`, not yet tried), or the deletion is seen to work in a run.
+- **History:**
+  - 2026-11-15 — Found in the first two runs, which moved the files into the
+    output folder instead. Rule reworded the same day; not yet run.
+
+## CH-35 — A signed-in session leaks the account into captures
+
+- **Type / Status:** Risk · Mitigated
+- **Detail:** With Pinterest signed in, a results-grid screenshot showed the
+  account avatar, and the Playwright snapshots held the profile path and
+  name. The agent's own redaction missed 9 files. This repo is public, so
+  none of that may ever be committed.
+- **Workaround:** Hard rule 14: on a signed-in site the agent captures only
+  the design itself, never a results grid or page with account chrome; only
+  searches and opens items; and never writes an account name, avatar, or
+  profile path anywhere. Deleting `.playwright-mcp/` (CH-34) removes the
+  snapshots. Run output is never staged or committed.
+- **Resolves when:** A signed-in run leaves no account detail in any file,
+  checked by searching the output for the profile name.
+- **History:**
+  - 2026-11-15 — Found in the second run. Rule added the same day; not yet
+    run.

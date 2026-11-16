@@ -21,53 +21,45 @@ Work in progress. Planned improvements to the agents in this folder's parent.
 ## IMP-01 — Hand login walls to the user, with a timeout
 
 - **Agent:** `ux-design-researcher`
-- **Logged:** 2026-11-10 · Status: Proposed
-- **Relates to:** CH-08 (login-gated sites), CH-09 (Pinterest), CH-24
-  (permission prompts)
-- **Goal:** When a site needs a login (Mobbin, Refero, Page Flows, Pinterest),
-  pause, let the user log in by hand, then continue. If the user does not
-  respond within **3 minutes**, give up on that site and move on.
-- **Why it has to happen in the browser:** subagents cannot ask the user
-  questions — they have no question tool and their reasoning is not shown
-  while they run. The Playwright browser window is the only thing the user
-  sees mid-run, so the "popup" is shown there.
-- **Proposed flow:**
-  1. The agent hits a login wall on a site.
-  2. It injects an overlay into the page with `browser_evaluate`:
-     *"ux-design-researcher needs you to log in to <site>. Log in in this
-     window, then click **Continue**. Click **Skip** to move on. Skipping
-     automatically in 3:00."* — with a visible countdown.
-  3. The buttons set a flag on the page (e.g. `window.__uxHandoff =
-     'continue' | 'skip'`). The agent polls it every ~15 seconds with
-     `browser_evaluate` / `browser_wait_for`. The overlay is re-injected if
-     the login redirects to another page.
-  4. **Continue** → the agent reloads the original page and resumes.
-     **Skip** or **3 minutes with no response** → recorded under Blockers
-     encountered, and the agent moves to the next site.
-- **Trigger to turn it off:** if the task message contains **"Skip logins"**,
-  the agent behaves as today — treat the wall as a blocker and move on, with
-  no overlay and no wait.
+- **Logged:** 2026-11-10 · Reworked 2026-11-15 · Status: Tried by hand, not
+  yet written into a skill or agent
+- **Relates to:** CH-08 (login-gated sites), CH-09 (Pinterest), CH-26 (login
+  persistence), CH-28 (wait budget)
+- **Goal:** Let the user sign in to walled sites (Pinterest, CodePen, Mobbin,
+  Refero) so the agent can search them, without the agent ever handling a
+  credential.
+- **Where it runs:** in the **calling session, before the agent starts**. The
+  agent itself still stops at a wall and lists it under Logins needed.
+- **Flow**, as it worked on 2026-11-15 (Linux, Pinterest):
+  1. The calling session opens the site's login page in the Playwright
+     browser and tells the user to sign in there.
+  2. It watches **only the page address** until it leaves the login path. It
+     takes no screenshot or snapshot while the user signs in.
+  3. Each wait is capped **under two minutes**. A wait of 120 seconds or more
+     gets moved to the background by the harness.
+  4. An address change is not proof. The session confirms by loading a search
+     on the site and checking that results show with no wall.
+  5. Not confirmed in time → the site stays under Logins needed and the run
+     goes ahead without it.
+- **Things to expect:**
+  - Signing in with Google can open an extra verification tab, so a hand-off
+    can involve more than one tab.
+  - The login carried into the next agent run in the same session. Whether it
+    survives a restart is untested (CH-26).
 - **Rules to keep:**
-  - The agent never types, sees, or stores credentials. It takes no
-    screenshots or snapshots while the overlay is up.
-  - The user logs in; the agent only waits. This replaces hard rule "Never
-    log in" with "Never enter credentials yourself".
-  - Never submit real data or change account settings after login.
-- **Open questions** (logged as CH-25 to CH-28 and CH-20 in
-  `../challenges/ux-design-researcher-challenges.md`):
-  - **Is the Playwright browser visible?** The flow needs Playwright MCP
-    running headed (not `--headless`). Confirm on Windows.
-  - **Does the login persist?** With a persistent browser profile the user
-    logs in once per site, not every run. Confirm the Playwright MCP profile
-    setting on Windows.
-  - **Will the user notice?** If the agent runs in the background, a window
-    appearing may be missed. Consider a Windows toast notification from
-    PowerShell as well — untested.
-  - **Wait budget:** several walls × 3 minutes can stall a run. Proposed cap:
-    at most 2 login handoffs per run; later walls are skipped automatically.
-  - **Line budget (CH-20):** the agent is at 496 of 500 lines. IMP-01 and
-    IMP-02 together need roughly 25–35 lines; something must move to a
-    companion file or the limit must change.
+  - Nobody but the user types, sees, or stores a credential.
+  - Once signed in, the agent follows its signed-in rule (hard rule 14):
+    capture the design only, never account chrome, and never save, like,
+    follow or comment.
+- **Open questions:**
+  - Where the hand-off steps live: a skill, or a note for the calling
+    session. Not decided.
+  - How many hand-offs per run (CH-28).
+- **Superseded design (2026-11-10):** the agent injected an overlay into the
+  page mid-run, with Continue and Skip buttons, a 3-minute countdown, and
+  polling of a page flag. Dropped because the hand-off before the run needs
+  no overlay and no change to the agent. Its open questions were logged as
+  CH-25 to CH-28.
 
 ## IMP-02 — Hand CAPTCHAs to the user, with a timeout and fallback route
 
