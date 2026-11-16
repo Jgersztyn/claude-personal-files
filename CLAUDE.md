@@ -107,6 +107,17 @@ The skills share most of this skeleton. Match it when adding another:
   differ from the folder name (`ux_design_researcher/` → `ux-design-researcher`).
 - **"RXer" means the `ux-design-researcher` agent** (`agents/ux_design_researcher/AGENT.md`).
   It is JG's shorthand for the UX/UI researcher; no file or agent carries the name.
+- **The UX work is split three ways, and the lines are deliberate.**
+  - The RXer researches widely, stores reference images, and writes several
+    self-contained HTML mocks. It never builds, compiles, audits or ranks.
+  - `agents/ux_auditor/AGENT.md` (`ux-auditor`) reviews a UI that already
+    exists against a fixed checklist. It never changes a file.
+  - `skills/jg-component-builder/` turns one chosen HTML mock into MudBlazor or
+    MaterialUI code. It has no companion reference yet.
+
+  Do not move building or auditing back into the RXer.
+- **Keep every agent and skill file small.** The RXer's limit is 500 lines. Cut
+  or move content before growing a file, and report line counts after an edit.
 
 ## Deployment
 
